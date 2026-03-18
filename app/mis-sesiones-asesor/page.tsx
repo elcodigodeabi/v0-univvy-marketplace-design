@@ -94,10 +94,7 @@ export default function MisSesionesAsesorPage() {
                 </Link>
               </Button>
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 bg-red-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">U</span>
-                </div>
-                <span className="text-xl font-bold text-gray-900">Univyy</span>
+<img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
               </div>
             </div>
             <UserSelector />

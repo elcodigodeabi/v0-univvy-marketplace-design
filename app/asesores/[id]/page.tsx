@@ -242,9 +242,11 @@ export default function AsesorProfilePage({ params }: { params: Promise<{ id: st
                 </div>
 
                 <div className="space-y-3">
-                  <Button className="w-full bg-red-600 hover:bg-red-700 text-white" size="lg">
-                    <Calendar className="mr-2 h-5 w-5" />
-                    Reservar Sesión
+                  <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white" size="lg">
+                    <Link href={`/agendar/${asesor.id}`}>
+                      <Calendar className="mr-2 h-5 w-5" />
+                      Reservar Sesión
+                    </Link>
                   </Button>
 
                   <Button variant="outline" className="w-full border-gray-300 bg-transparent" size="lg">

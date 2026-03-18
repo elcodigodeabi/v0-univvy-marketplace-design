@@ -45,9 +45,7 @@ export default function LoginPage() {
         <Card className="border-gray-200 shadow-lg">
           <CardHeader className="space-y-1">
             <div className="flex items-center justify-center mb-4">
-              <div className="h-12 w-12 bg-red-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-2xl">U</span>
-              </div>
+              <img src="/univvy-logo.jpg" alt="Univvy" className="h-16 w-auto rounded-full border border-gray-100 shadow-sm" />
             </div>
             <CardTitle className="text-2xl text-center text-gray-900">Iniciar Sesión</CardTitle>
             <CardDescription className="text-center text-gray-600">Ingresa a tu cuenta de Univyy</CardDescription>
