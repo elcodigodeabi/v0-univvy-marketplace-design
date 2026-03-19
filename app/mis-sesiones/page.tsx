@@ -222,7 +222,7 @@ export default function MisSesionesPage() {
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Confirmar
                 </Button>
-                <Button variant="outline" className="flex-1 border-red-300 text-red-600 hover:bg-red-50">
+                <Button variant="outline" className="flex-1 border-red-300 text-red-600 hover:bg-red-50 bg-transparent">
                   <XCircle className="h-4 w-4 mr-2" />
                   Cancelar
                 </Button>
@@ -259,10 +259,7 @@ export default function MisSesionesPage() {
               </Link>
             </Button>
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 bg-red-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">U</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">Univyy</span>
+              <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
             </div>
           </div>
         </div>
