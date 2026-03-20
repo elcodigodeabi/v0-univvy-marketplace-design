@@ -95,6 +95,9 @@ export default function DashboardAsesorPage() {
               <Link href="/solicitudes-asesor" className="text-gray-700 hover:text-red-600 transition-colors">
                 Solicitudes
               </Link>
+              <Link href="/gestion-asesor" className="text-gray-700 hover:text-red-600 transition-colors">
+                Gestión
+              </Link>
               <Link href="/mensajes" className="text-gray-700 hover:text-red-600 transition-colors">
                 Mensajes
               </Link>
@@ -381,7 +384,7 @@ export default function DashboardAsesorPage() {
                     </Link>
                   </Button>
                   <Button asChild variant="outline" className="w-full justify-start border-gray-300 bg-white">
-                    <Link href="/disponibilidad">
+                    <Link href="/gestion-asesor">
                       <Clock className="mr-2 h-4 w-4" />
                       Gestionar Horarios
                     </Link>
