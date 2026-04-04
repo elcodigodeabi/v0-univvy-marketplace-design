@@ -142,20 +142,15 @@ export default function AgendarSesionPage({ params }: { params: Promise<{ id: st
   const handleConfirmBooking = () => {
     setIsLoading(true)
     
-    // Simulate API call
+    // Generate a session ID and redirect to payment
+    const sessionId = `session-${Date.now()}`
+    
     setTimeout(() => {
       setIsLoading(false)
       setIsConfirmDialogOpen(false)
-      toast.success(
-        selectedSlots.length === 1 
-          ? "Sesión agendada exitosamente" 
-          : `${selectedSlots.length} sesiones agendadas exitosamente`,
-        {
-          description: `Te hemos enviado un correo con los detalles de tu${selectedSlots.length > 1 ? "s" : ""} sesión${selectedSlots.length > 1 ? "es" : ""} con ${asesor.nombre}.`,
-        }
-      )
-      router.push("/mis-sesiones")
-    }, 1500)
+      // Redirect to payment page
+      router.push(`/pago/${sessionId}`)
+    }, 500)
   }
 
   const totalCost = selectedSlots.length * asesor.precio

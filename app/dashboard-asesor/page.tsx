@@ -101,6 +101,9 @@ export default function DashboardAsesorPage() {
               <Link href="/mensajes" className="text-gray-700 hover:text-red-600 transition-colors">
                 Mensajes
               </Link>
+              <Link href="/wallet" className="text-gray-700 hover:text-red-600 transition-colors">
+                Billetera
+              </Link>
             </nav>
 
             <div className="flex items-center gap-3">
