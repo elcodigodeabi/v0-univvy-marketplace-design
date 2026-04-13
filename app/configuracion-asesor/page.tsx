@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Plus, X, Save, DollarSign, BookOpen, Settings } from "lucide-react"
-import { UserSelector } from "@/components/user-selector"
+import { UserMenu } from "@/components/user-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 
@@ -73,7 +73,7 @@ export default function ConfiguracionAsesorPage() {
                 <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
               </Link>
             </div>
-            <UserSelector />
+            <UserMenu variant="asesor" />
           </div>
         </div>
       </header>

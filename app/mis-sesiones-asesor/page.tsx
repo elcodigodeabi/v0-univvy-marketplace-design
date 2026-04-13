@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, Clock, Star, DollarSign, ArrowLeft, MessageSquare, CheckCircle } from "lucide-react"
-import { UserSelector } from "@/components/user-selector"
+import { UserMenu } from "@/components/user-menu"
 
 export default function MisSesionesAsesorPage() {
   const [activeTab, setActiveTab] = useState("proximas")
@@ -97,7 +97,7 @@ export default function MisSesionesAsesorPage() {
 <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
               </div>
             </div>
-            <UserSelector />
+            <UserMenu variant="asesor" />
           </div>
         </div>
       </header>

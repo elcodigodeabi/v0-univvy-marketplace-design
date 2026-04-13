@@ -8,9 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Search, MessageSquare, Clock, Star, BookOpen, Menu, Bell } from "lucide-react"
-import { UserSelector } from "@/components/user-selector"
+import { useAuth } from "@/hooks/use-auth"
+import { UserMenu } from "@/components/user-menu"
 
 export default function DashboardPage() {
+  const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
 
   // Mock data for upcoming sessions
@@ -110,7 +112,7 @@ export default function DashboardPage() {
                 <span className="absolute top-1 right-1 h-2 w-2 bg-red-600 rounded-full"></span>
               </Button>
 
-              <UserSelector />
+              <UserMenu variant="alumno" />
 
               <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-5 w-5 text-gray-700" />
@@ -124,7 +126,9 @@ export default function DashboardPage() {
       <main className="container mx-auto px-4 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bienvenido, Juan</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Bienvenido, {user?.nombre?.split(" ")[0] || "Usuario"}
+          </h1>
           <p className="text-gray-600">Encuentra el apoyo académico que necesitas</p>
         </div>
 

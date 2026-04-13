@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft, MessageSquare, MapPin } from "lucide-react"
-import { UserSelector } from "@/components/user-selector"
+import { UserMenu } from "@/components/user-menu"
 
 export default function SolicitudesAsesorPage() {
   const [activeTab, setActiveTab] = useState("pendientes")
@@ -102,7 +102,7 @@ export default function SolicitudesAsesorPage() {
 <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
               </div>
             </div>
-            <UserSelector />
+            <UserMenu variant="asesor" />
           </div>
         </div>
       </header>

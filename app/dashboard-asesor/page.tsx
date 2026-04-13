@@ -14,13 +14,15 @@ import {
   Users,
   Bell,
   Menu,
-  User,
   CheckCircle,
   AlertCircle,
 } from "lucide-react"
-import { UserSelector } from "@/components/user-selector"
+import { useAuth } from "@/hooks/use-auth"
+import { UserMenu } from "@/components/user-menu"
 
 export default function DashboardAsesorPage() {
+  const { user } = useAuth()
+  
   // Mock data for advisor dashboard
   const proximasSesiones = [
     {
@@ -112,7 +114,7 @@ export default function DashboardAsesorPage() {
                 <span className="absolute top-1 right-1 h-2 w-2 bg-red-600 rounded-full"></span>
               </Button>
 
-              <UserSelector />
+              <UserMenu variant="asesor" />
 
               <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-5 w-5 text-gray-700" />
@@ -125,7 +127,9 @@ export default function DashboardAsesorPage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard de Asesor</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Hola, {user?.nombre?.split(" ")[0] || "Asesor"}
+          </h1>
           <p className="text-gray-600">Gestiona tus sesiones y monitorea tu progreso</p>
         </div>
 

@@ -1,18 +1,19 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, AlertCircle } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 export default function RegistroPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const tipoInicial = searchParams.get("tipo") || "alumno"
 
@@ -43,27 +44,44 @@ export default function RegistroPage() {
 
     setIsLoading(true)
 
-    // TODO: Implement registration logic
-    console.log("[v0] Registration attempt:", {
-      tipo,
-      nombre,
+    const supabase = createClient()
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
-      universidad,
-      carrera,
+      password,
+      options: {
+        emailRedirectTo:
+          process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
+          `${window.location.origin}/auth/callback`,
+        data: {
+          nombre,
+          tipo,
+          universidad,
+          carrera,
+        },
+      },
     })
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
-      // Redirect to dashboard after successful registration
-      window.location.href = "/dashboard"
-    }, 2000)
+    setIsLoading(false)
+
+    if (signUpError) {
+      if (signUpError.message.includes("User already registered")) {
+        setError("Este correo ya está registrado. Intenta iniciar sesión.")
+      } else {
+        setError(signUpError.message)
+      }
+      return
+    }
+
+    if (data.user) {
+      // Redirect to success page
+      router.push("/registro/exito")
+    }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 py-12">
       <div className="w-full max-w-md">
-        {/* Back to home link */}
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-red-600 transition-colors mb-8"
@@ -78,7 +96,7 @@ export default function RegistroPage() {
               <img src="/univvy-logo.jpg" alt="Univvy" className="h-16 w-auto rounded-full border border-gray-100 shadow-sm" />
             </div>
             <CardTitle className="text-2xl text-center text-gray-900">Crear Cuenta</CardTitle>
-            <CardDescription className="text-center text-gray-600">Únete a la comunidad de Univyy</CardDescription>
+            <CardDescription className="text-center text-gray-600">Únete a la comunidad de Univvy</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -215,7 +233,12 @@ export default function RegistroPage() {
                 />
               </div>
 
-              {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</div>}
+              {error && (
+                <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
 
               <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={isLoading}>
                 {isLoading ? "Creando cuenta..." : "Crear Cuenta"}

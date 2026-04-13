@@ -3,13 +3,14 @@
 import type React from "react"
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Lock, CheckCircle, XCircle, Eye, EyeOff, Check, X } from "lucide-react"
 import { toast } from "sonner"
+import { createClient } from "@/lib/supabase/client"
 
 function NuevaPasswordContent() {
   const [password, setPassword] = useState("")
@@ -18,9 +19,8 @@ function NuevaPasswordContent() {
   const [passwordChanged, setPasswordChanged] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const email = searchParams.get("email") || ""
 
   // Validaciones de contraseña
   const passwordValidations = {
@@ -54,22 +54,35 @@ function NuevaPasswordContent() {
     }
 
     setIsLoading(true)
+    setError("")
 
-    // Simulación de cambio de contraseña (sin backend)
-    setTimeout(() => {
-      setIsLoading(false)
-      setPasswordChanged(true)
+    const supabase = createClient()
+    
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: password
+    })
 
-      toast.success("Contraseña actualizada", {
-        description: "Tu contraseña ha sido cambiada exitosamente.",
-        icon: <CheckCircle className="h-5 w-5 text-green-600" />,
+    setIsLoading(false)
+
+    if (updateError) {
+      setError(updateError.message)
+      toast.error("Error al actualizar contraseña", {
+        description: updateError.message,
+        icon: <XCircle className="h-5 w-5 text-red-600" />,
       })
+      return
+    }
 
-      // Redirigir al login después de 3 segundos
-      setTimeout(() => {
-        router.push("/login")
-      }, 3000)
-    }, 1500)
+    setPasswordChanged(true)
+    toast.success("Contraseña actualizada", {
+      description: "Tu contraseña ha sido cambiada exitosamente.",
+      icon: <CheckCircle className="h-5 w-5 text-green-600" />,
+    })
+
+    // Redirect to login after 3 seconds
+    setTimeout(() => {
+      router.push("/login")
+    }, 3000)
   }
 
   return (
@@ -93,11 +106,7 @@ function NuevaPasswordContent() {
             </div>
             <CardTitle className="text-2xl text-center text-gray-900">Nueva Contraseña</CardTitle>
             <CardDescription className="text-center text-gray-600">
-              {email ? (
-                <>Crea una nueva contraseña para <span className="font-medium text-gray-900">{email}</span></>
-              ) : (
-                "Crea una nueva contraseña segura para tu cuenta"
-              )}
+              Crea una nueva contraseña segura para tu cuenta
             </CardDescription>
           </CardHeader>
           <CardContent>

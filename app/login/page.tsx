@@ -1,39 +1,85 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, AlertCircle, Mail } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import { toast } from "sonner"
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [needsVerification, setNeedsVerification] = useState(false)
+  const [isResending, setIsResending] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
+    setNeedsVerification(false)
     setIsLoading(true)
 
-    // TODO: Implement authentication logic
-    console.log("[v0] Login attempt:", { email })
+    const supabase = createClient()
 
-    // Simulate API call
-    setTimeout(() => {
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (signInError) {
       setIsLoading(false)
-      // Redirect to dashboard after successful login
-      window.location.href = "/dashboard"
-    }, 1500)
+      if (signInError.message.includes("Email not confirmed")) {
+        setNeedsVerification(true)
+        setError("Por favor, confirma tu correo electrónico antes de iniciar sesión.")
+      } else if (signInError.message.includes("Invalid login credentials")) {
+        setError("Correo o contraseña incorrectos.")
+      } else {
+        setError(signInError.message)
+      }
+      return
+    }
+
+    if (data.user) {
+      toast.success("Inicio de sesión exitoso")
+      const userType = data.user.user_metadata?.tipo || "alumno"
+      router.push(userType === "asesor" ? "/dashboard-asesor" : "/dashboard")
+    }
+  }
+
+  const handleResendVerification = async () => {
+    setIsResending(true)
+    const supabase = createClient()
+
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo:
+          process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
+          `${window.location.origin}/auth/callback`,
+      },
+    })
+
+    setIsResending(false)
+
+    if (resendError) {
+      toast.error("Error al reenviar el correo: " + resendError.message)
+    } else {
+      toast.success("Correo de verificación reenviado. Revisa tu bandeja de entrada.")
+    }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Back to home link */}
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-red-600 transition-colors mb-8"
@@ -48,7 +94,7 @@ export default function LoginPage() {
               <img src="/univvy-logo.jpg" alt="Univvy" className="h-16 w-auto rounded-full border border-gray-100 shadow-sm" />
             </div>
             <CardTitle className="text-2xl text-center text-gray-900">Iniciar Sesión</CardTitle>
-            <CardDescription className="text-center text-gray-600">Ingresa a tu cuenta de Univyy</CardDescription>
+            <CardDescription className="text-center text-gray-600">Ingresa a tu cuenta de Univvy</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -88,6 +134,26 @@ export default function LoginPage() {
                   className="border-gray-300"
                 />
               </div>
+
+              {error && (
+                <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {needsVerification && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-gray-300 bg-transparent"
+                  onClick={handleResendVerification}
+                  disabled={isResending}
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  {isResending ? "Enviando..." : "Reenviar correo de verificación"}
+                </Button>
+              )}
 
               <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={isLoading}>
                 {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
