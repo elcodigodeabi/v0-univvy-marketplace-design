@@ -1,6 +1,6 @@
 "use client"
 
-import { use } from "react"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,12 +20,12 @@ import {
   CheckCircle2,
 } from "lucide-react"
 
-export default function AsesorProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params)
+export default function AsesorProfilePage() {
+  const params = useParams<{ id: string }>()
 
   // Mock data - in real app this would fetch from API
   const asesor = {
-    id: Number.parseInt(resolvedParams.id),
+    id: Number.parseInt(params.id || "1"),
     nombre: "Ana Martínez",
     especialidades: ["Álgebra Lineal", "Cálculo Multivariable", "Geometría Analítica"],
     universidad: "Universidad Nacional",
