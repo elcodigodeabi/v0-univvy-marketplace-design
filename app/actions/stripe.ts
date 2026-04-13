@@ -30,7 +30,12 @@ export async function createCheckoutSession(params: CreateCheckoutSessionParams)
   } = params
 
   try {
+    // Calculate platform fee (10%)
+    const platformFeeCents = Math.round(priceInCents * 0.1)
+    const totalAmount = priceInCents + platformFeeCents
+
     const session = await stripe.checkout.sessions.create({
+      ui_mode: "embedded",
       payment_method_types: ["card"],
       line_items: [
         {
@@ -40,14 +45,13 @@ export async function createCheckoutSession(params: CreateCheckoutSessionParams)
               name: `Asesoria: ${subject}`,
               description: `Sesion con ${tutorName} - ${scheduledDate} a las ${scheduledTime} (${modality})`,
             },
-            unit_amount: priceInCents,
+            unit_amount: totalAmount,
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/pago/exito?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/pago/cancelado`,
+      return_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/pago/exito?session_id={CHECKOUT_SESSION_ID}`,
       customer_email: studentEmail,
       metadata: {
         session_id: sessionId,
@@ -57,6 +61,8 @@ export async function createCheckoutSession(params: CreateCheckoutSessionParams)
         scheduled_date: scheduledDate,
         scheduled_time: scheduledTime,
         modality,
+        platform_fee_cents: platformFeeCents.toString(),
+        tutor_amount_cents: priceInCents.toString(),
       },
       payment_intent_data: {
         capture_method: "automatic",
@@ -64,6 +70,8 @@ export async function createCheckoutSession(params: CreateCheckoutSessionParams)
           session_id: sessionId,
           tutor_id: tutorId,
           escrow: "true",
+          platform_fee_cents: platformFeeCents.toString(),
+          tutor_amount_cents: priceInCents.toString(),
         },
       },
     })
