@@ -22,20 +22,23 @@ import {
   DollarSign,
   Save,
   Star,
+  LogOut,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useAuth } from "@/hooks/use-auth"
+import { toast } from "sonner"
 
 export default function ProfilePage() {
-  const [userType, setUserType] = useState<"alumno" | "asesor">("alumno")
+  const { user, loading, signOut } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
 
-  // Mock profile data
+  // Profile data state - initialized from auth user
   const [profileData, setProfileData] = useState({
-    nombre: "Juan Díaz",
-    email: "juan.diaz@universidad.edu",
+    nombre: "",
+    email: "",
     telefono: "+57 300 123 4567",
-    universidad: "Universidad Nacional de Colombia",
-    carrera: "Ingeniería de Sistemas",
+    universidad: "",
+    carrera: "",
     semestre: "6",
     ciudad: "Bogotá",
     biografia: "Estudiante apasionado por la tecnología y el desarrollo de software.",
@@ -47,20 +50,34 @@ export default function ProfilePage() {
     experiencia: "3 años de experiencia como tutor académico",
   })
 
+  // Update profile data when user loads
   useEffect(() => {
-    const savedUser = localStorage.getItem("univyy-current-user")
-    if (savedUser) {
-      const user = JSON.parse(savedUser)
-      setUserType(user.rol)
-      if (user.rol === "asesor") {
-        setProfileData({
-          ...profileData,
-          nombre: "Pedro Martínez",
-          email: "pedro.martinez@universidad.edu",
-        })
-      }
+    if (user) {
+      setProfileData(prev => ({
+        ...prev,
+        nombre: user.nombre || "",
+        email: user.email || "",
+        universidad: user.universidad || "",
+        carrera: user.carrera || "",
+      }))
     }
-  }, [])
+  }, [user])
+
+  const handleSave = () => {
+    setIsEditing(false)
+    toast.success("Perfil actualizado correctamente")
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    )
+  }
+
+  const userType = user?.tipo || "alumno"
+  const dashboardUrl = userType === "asesor" ? "/dashboard-asesor" : "/dashboard"
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -69,7 +86,7 @@ export default function ProfilePage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Button variant="ghost" asChild className="text-gray-700">
-              <Link href="/dashboard">
+              <Link href={dashboardUrl}>
                 <ArrowLeft className="h-5 w-5 mr-2" />
                 Volver al Dashboard
               </Link>
@@ -94,8 +111,10 @@ export default function ProfilePage() {
                   <div className="flex flex-col items-center">
                     <div className="relative mb-4">
                       <Avatar className="h-32 w-32">
-                        <AvatarImage src="/abstract-geometric-shapes.png" />
-                        <AvatarFallback className="bg-red-100 text-red-600 text-3xl">JD</AvatarFallback>
+                        <AvatarImage src={user?.avatar || "/placeholder.svg"} />
+                        <AvatarFallback className="bg-red-100 text-red-600 text-3xl">
+                          {user?.iniciales || "U"}
+                        </AvatarFallback>
                       </Avatar>
                       {isEditing && (
                         <Button
@@ -106,7 +125,7 @@ export default function ProfilePage() {
                         </Button>
                       )}
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-1">{profileData.nombre}</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-1">{user?.nombre || "Usuario"}</h2>
                     <Badge variant="secondary" className="mb-4">
                       {userType === "alumno" ? "Alumno" : "Asesor"}
                     </Badge>
@@ -138,6 +157,15 @@ export default function ProfilePage() {
                       } text-white`}
                     >
                       {isEditing ? "Cancelar" : "Editar Perfil"}
+                    </Button>
+
+                    <Button
+                      onClick={signOut}
+                      variant="outline"
+                      className="w-full mt-3 border-gray-300 text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Cerrar Sesión
                     </Button>
                   </div>
                 </CardContent>
@@ -180,11 +208,11 @@ export default function ProfilePage() {
                               id="email"
                               type="email"
                               value={profileData.email}
-                              disabled={!isEditing}
-                              onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                              className="pl-10 border-gray-300"
+                              disabled
+                              className="pl-10 border-gray-300 bg-gray-50"
                             />
                           </div>
+                          <p className="text-xs text-gray-500">El correo no se puede cambiar</p>
                         </div>
                       </div>
 
@@ -240,7 +268,7 @@ export default function ProfilePage() {
                             Cancelar
                           </Button>
                           <Button
-                            onClick={() => setIsEditing(false)}
+                            onClick={handleSave}
                             className="bg-red-600 hover:bg-red-700 text-white"
                           >
                             <Save className="h-4 w-4 mr-2" />
@@ -322,7 +350,7 @@ export default function ProfilePage() {
                               ))}
                             </div>
                             {isEditing && (
-                              <p className="text-xs text-gray-500">Haz clic en "Gestionar Materias" para editar</p>
+                              <p className="text-xs text-gray-500">Ve a Gestión para editar tus materias</p>
                             )}
                           </div>
 
@@ -393,7 +421,7 @@ export default function ProfilePage() {
                             Cancelar
                           </Button>
                           <Button
-                            onClick={() => setIsEditing(false)}
+                            onClick={handleSave}
                             className="bg-red-600 hover:bg-red-700 text-white"
                           >
                             <Save className="h-4 w-4 mr-2" />

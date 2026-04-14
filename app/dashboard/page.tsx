@@ -1,80 +1,84 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Search, MessageSquare, Clock, Star, BookOpen, Menu, Bell } from "lucide-react"
-import { UserSelector } from "@/components/user-selector"
+import { Calendar, Search, MessageSquare, Clock, Star, BookOpen, Menu, Bell, Users, Loader2 } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth"
+import { UserMenu } from "@/components/user-menu"
+import { useAsesores, type Asesor } from "@/hooks/use-asesores"
+import { createClient } from "@/lib/supabase/client"
+
+interface Session {
+  id: string
+  asesor_id: string
+  asesor_nombre: string
+  materia: string
+  fecha: string
+  hora: string
+  tipo: string
+  estado: string
+}
 
 export default function DashboardPage() {
+  const { user } = useAuth()
+  const { asesores, loading: loadingAsesores } = useAsesores()
   const [searchQuery, setSearchQuery] = useState("")
+  const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([])
+  const [loadingSessions, setLoadingSessions] = useState(true)
+  const [stats, setStats] = useState({
+    sesiones_completadas: 0,
+    horas_asesoria: 0,
+    asesores_contactados: 0,
+  })
 
-  // Mock data for upcoming sessions
-  const upcomingSessions = [
-    {
-      id: 1,
-      asesor: "María González",
-      materia: "Cálculo Diferencial",
-      fecha: "2025-01-12",
-      hora: "14:00",
-      tipo: "Virtual",
-      avatar: "/portrait-thoughtful-woman.png",
-    },
-    {
-      id: 2,
-      asesor: "Carlos Ruiz",
-      materia: "Programación en Java",
-      fecha: "2025-01-14",
-      hora: "16:30",
-      tipo: "Presencial",
-      avatar: "/portrait-carlos.png",
-    },
-  ]
+  useEffect(() => {
+    async function fetchSessions() {
+      if (!user?.id) {
+        setLoadingSessions(false)
+        return
+      }
 
-  // Mock data for recommended advisors
-  const recommendedAdvisors = [
-    {
-      id: 1,
-      nombre: "Ana Martínez",
-      especialidad: "Álgebra Lineal",
-      universidad: "Universidad Nacional",
-      rating: 4.9,
-      sesiones: 120,
-      precio: 15000,
-      avatar: "/ana-abstract-geometric.png",
-    },
-    {
-      id: 2,
-      nombre: "Diego López",
-      especialidad: "Física Mecánica",
-      universidad: "Universidad de los Andes",
-      rating: 4.8,
-      sesiones: 95,
-      precio: 18000,
-      avatar: "/diego.jpg",
-    },
-    {
-      id: 3,
-      nombre: "Laura Sánchez",
-      especialidad: "Química Orgánica",
-      universidad: "Universidad Javeriana",
-      rating: 5.0,
-      sesiones: 150,
-      precio: 20000,
-      avatar: "/portrait-of-a-woman.png",
-    },
-  ]
+      const supabase = createClient()
+      
+      try {
+        // Try to fetch upcoming sessions for the student
+        const { data, error } = await supabase
+          .from("bookings")
+          .select("*")
+          .eq("student_id", user.id)
+          .gte("scheduled_date", new Date().toISOString().split("T")[0])
+          .order("scheduled_date", { ascending: true })
+          .limit(5)
 
-  // Mock data for recent activity
-  const recentActivity = [
-    { id: 1, tipo: "sesion", descripcion: "Completaste asesoría de Cálculo", fecha: "Hace 2 días" },
-    { id: 2, tipo: "mensaje", descripcion: "Nuevo mensaje de María González", fecha: "Hace 3 días" },
-    { id: 3, tipo: "reserva", descripcion: "Reservaste asesoría con Carlos Ruiz", fecha: "Hace 5 días" },
-  ]
+        if (!error && data) {
+          setUpcomingSessions(data.map((s: any) => ({
+            id: s.id,
+            asesor_id: s.asesor_id,
+            asesor_nombre: s.asesor_nombre || "Asesor",
+            materia: s.subject || "Asesoría",
+            fecha: s.scheduled_date,
+            hora: s.scheduled_time,
+            tipo: s.modality || "Virtual",
+            estado: s.status,
+          })))
+        }
+      } catch (err) {
+        console.log("[v0] Error fetching sessions:", err)
+      } finally {
+        setLoadingSessions(false)
+      }
+    }
+
+    fetchSessions()
+  }, [user?.id])
+
+  // Get up to 3 recommended asesores
+  const recommendedAdvisors = asesores.slice(0, 3)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -107,10 +111,9 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5 text-gray-700" />
-                <span className="absolute top-1 right-1 h-2 w-2 bg-red-600 rounded-full"></span>
               </Button>
 
-              <UserSelector />
+              <UserMenu variant="alumno" />
 
               <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-5 w-5 text-gray-700" />
@@ -124,7 +127,9 @@ export default function DashboardPage() {
       <main className="container mx-auto px-4 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bienvenido, Juan</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Bienvenido, {user?.nombre?.split(" ")[0] || "Usuario"}
+          </h1>
           <p className="text-gray-600">Encuentra el apoyo académico que necesitas</p>
         </div>
 
@@ -142,7 +147,9 @@ export default function DashboardPage() {
                   className="pl-10 border-gray-300"
                 />
               </div>
-              <Button className="bg-red-600 hover:bg-red-700 text-white">Buscar</Button>
+              <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
+                <Link href={`/asesores?q=${encodeURIComponent(searchQuery)}`}>Buscar</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -160,7 +167,11 @@ export default function DashboardPage() {
                 <CardDescription>Tus asesorías programadas</CardDescription>
               </CardHeader>
               <CardContent>
-                {upcomingSessions.length > 0 ? (
+                {loadingSessions ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-red-600" />
+                  </div>
+                ) : upcomingSessions.length > 0 ? (
                   <div className="space-y-4">
                     {upcomingSessions.map((sesion) => (
                       <div
@@ -169,16 +180,15 @@ export default function DashboardPage() {
                       >
                         <div className="flex items-center gap-4">
                           <Avatar className="h-12 w-12">
-                            <AvatarImage src={sesion.avatar || "/placeholder.svg"} />
                             <AvatarFallback className="bg-red-100 text-red-600">
-                              {sesion.asesor
+                              {sesion.asesor_nombre
                                 .split(" ")
                                 .map((n) => n[0])
                                 .join("")}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <h4 className="font-semibold text-gray-900">{sesion.asesor}</h4>
+                            <h4 className="font-semibold text-gray-900">{sesion.asesor_nombre}</h4>
                             <p className="text-sm text-gray-600">{sesion.materia}</p>
                             <div className="flex items-center gap-3 mt-1">
                               <span className="text-xs text-gray-500 flex items-center gap-1">
@@ -205,8 +215,8 @@ export default function DashboardPage() {
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                    <p>No tienes sesiones programadas</p>
-                    <Button asChild className="mt-4 bg-red-600 hover:bg-red-700 text-white">
+                    <p className="mb-4">No tienes sesiones programadas</p>
+                    <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
                       <Link href="/asesores">Buscar Asesores</Link>
                     </Button>
                   </div>
@@ -219,49 +229,71 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-gray-900">
                   <BookOpen className="h-5 w-5 text-red-600" />
-                  Asesores Recomendados
+                  Asesores Disponibles
                 </CardTitle>
-                <CardDescription>Basado en tu carrera y materias</CardDescription>
+                <CardDescription>Explora asesores verificados</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {recommendedAdvisors.map((asesor) => (
-                    <div
-                      key={asesor.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start gap-3 mb-3">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={asesor.avatar || "/placeholder.svg"} />
-                          <AvatarFallback className="bg-red-100 text-red-600">
-                            {asesor.nombre
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900">{asesor.nombre}</h4>
-                          <p className="text-sm text-gray-600">{asesor.especialidad}</p>
-                          <p className="text-xs text-gray-500 mt-1">{asesor.universidad}</p>
+                {loadingAsesores ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-red-600" />
+                  </div>
+                ) : recommendedAdvisors.length > 0 ? (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {recommendedAdvisors.map((asesor) => (
+                      <div
+                        key={asesor.id}
+                        className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage src={asesor.avatar_url || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-red-100 text-red-600">
+                              {asesor.nombre
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900">{asesor.nombre}</h4>
+                            <p className="text-sm text-gray-600">
+                              {asesor.especialidades[0] || "Asesoría general"}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">{asesor.universidad}</p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-1">
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm font-medium text-gray-900">{asesor.rating}</span>
-                          <span className="text-xs text-gray-500">({asesor.sesiones})</span>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                            <span className="text-sm font-medium text-gray-900">{asesor.rating.toFixed(1)}</span>
+                            <span className="text-xs text-gray-500">({asesor.sesiones_completadas})</span>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">
+                            ${asesor.precio_por_hora.toLocaleString()}/hr
+                          </span>
                         </div>
-                        <span className="text-sm font-semibold text-gray-900">
-                          ${asesor.precio.toLocaleString()}/hr
-                        </span>
+                        <Button asChild size="sm" className="w-full bg-red-600 hover:bg-red-700 text-white">
+                          <Link href={`/asesores/${asesor.id}`}>Ver Perfil</Link>
+                        </Button>
                       </div>
-                      <Button asChild size="sm" className="w-full bg-red-600 hover:bg-red-700 text-white">
-                        <Link href={`/asesores/${asesor.id}`}>Ver Perfil</Link>
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Users className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                    <p className="mb-4">No hay asesores disponibles en este momento</p>
+                    <p className="text-sm text-gray-400">Vuelve pronto para encontrar tu asesor ideal</p>
+                  </div>
+                )}
+                
+                {recommendedAdvisors.length > 0 && (
+                  <div className="mt-4 text-center">
+                    <Button asChild variant="outline" className="border-gray-300">
+                      <Link href="/asesores">Ver todos los asesores</Link>
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -277,35 +309,16 @@ export default function DashboardPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Sesiones completadas</span>
-                    <span className="text-2xl font-bold text-red-600">12</span>
+                    <span className="text-2xl font-bold text-red-600">{stats.sesiones_completadas}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Horas de asesoría</span>
-                    <span className="text-2xl font-bold text-red-600">18</span>
+                    <span className="text-2xl font-bold text-red-600">{stats.horas_asesoria}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Asesores contactados</span>
-                    <span className="text-2xl font-bold text-red-600">5</span>
+                    <span className="text-2xl font-bold text-red-600">{stats.asesores_contactados}</span>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="border-gray-200">
-              <CardHeader>
-                <CardTitle className="text-gray-900">Actividad Reciente</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {recentActivity.map((activity) => (
-                    <div key={activity.id} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-900">{activity.descripcion}</p>
-                        <p className="text-xs text-gray-500 mt-1">{activity.fecha}</p>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </CardContent>
             </Card>

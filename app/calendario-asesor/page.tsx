@@ -23,7 +23,7 @@ import {
   DollarSign,
   TrendingUp,
 } from "lucide-react"
-import { UserSelector } from "@/components/user-selector"
+import { UserMenu } from "@/components/user-menu"
 import {
   Dialog,
   DialogContent,
@@ -227,7 +227,7 @@ export default function CalendarioAsesorPage() {
                 <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
               </Link>
             </div>
-            <UserSelector />
+            <UserMenu variant="asesor" />
           </div>
         </div>
       </header>
