@@ -7,101 +7,25 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Search, Filter, Star, MapPin, Clock, BookOpen, ChevronDown, ArrowLeft } from "lucide-react"
+import { Search, Filter, Star, MapPin, Clock, BookOpen, ChevronDown, ArrowLeft, Users, Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { useAsesores } from "@/hooks/use-asesores"
 
 export default function AsesoresPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [showFilters, setShowFilters] = useState(false)
+  const { asesores, loading, error } = useAsesores()
 
-  // Mock data for advisors
-  const asesores = [
-    {
-      id: 1,
-      nombre: "Ana Martínez",
-      especialidades: ["Álgebra Lineal", "Cálculo Multivariable"],
-      universidad: "Universidad Nacional",
-      carrera: "Matemáticas",
-      rating: 4.9,
-      sesiones: 120,
-      precio: 15000,
-      modalidad: ["Virtual", "Presencial"],
-      disponibilidad: "Lunes a Viernes",
-      descripcion: "Estudiante de últimos semestres con experiencia en enseñanza de matemáticas.",
-      avatar: "/ana-abstract-geometric.png",
-    },
-    {
-      id: 2,
-      nombre: "Diego López",
-      especialidades: ["Física Mecánica", "Física de Ondas"],
-      universidad: "Universidad de los Andes",
-      carrera: "Ingeniería Física",
-      rating: 4.8,
-      sesiones: 95,
-      precio: 18000,
-      modalidad: ["Virtual"],
-      disponibilidad: "Tardes y fines de semana",
-      descripcion: "Profesor con 3 años de experiencia en tutorías de física.",
-      avatar: "/diego.jpg",
-    },
-    {
-      id: 3,
-      nombre: "Laura Sánchez",
-      especialidades: ["Química Orgánica", "Química Inorgánica"],
-      universidad: "Universidad Javeriana",
-      carrera: "Química",
-      rating: 5.0,
-      sesiones: 150,
-      precio: 20000,
-      modalidad: ["Virtual", "Presencial"],
-      disponibilidad: "Lunes a Sábado",
-      descripcion: "Magíster en Química con pasión por la enseñanza.",
-      avatar: "/portrait-of-a-woman.png",
-    },
-    {
-      id: 4,
-      nombre: "María González",
-      especialidades: ["Cálculo Diferencial", "Cálculo Integral"],
-      universidad: "Universidad Nacional",
-      carrera: "Ingeniería de Sistemas",
-      rating: 4.7,
-      sesiones: 80,
-      precio: 16000,
-      modalidad: ["Virtual"],
-      disponibilidad: "Lunes a Viernes",
-      descripcion: "Estudiante de último año enfocada en matemáticas aplicadas.",
-      avatar: "/portrait-thoughtful-woman.png",
-    },
-    {
-      id: 5,
-      nombre: "Carlos Ruiz",
-      especialidades: ["Programación en Java", "Estructuras de Datos"],
-      universidad: "Universidad de los Andes",
-      carrera: "Ingeniería de Sistemas",
-      rating: 4.9,
-      sesiones: 110,
-      precio: 22000,
-      modalidad: ["Virtual", "Presencial"],
-      disponibilidad: "Fines de semana",
-      descripcion: "Desarrollador senior con amplia experiencia en docencia.",
-      avatar: "/portrait-carlos.png",
-    },
-    {
-      id: 6,
-      nombre: "Sofía Ramírez",
-      especialidades: ["Estadística", "Probabilidad"],
-      universidad: "Universidad Javeriana",
-      carrera: "Estadística",
-      rating: 4.8,
-      sesiones: 75,
-      precio: 17000,
-      modalidad: ["Virtual"],
-      disponibilidad: "Tardes",
-      descripcion: "Especialista en análisis de datos y estadística aplicada.",
-      avatar: "/abstract-geometric-shapes.png",
-    },
-  ]
+  // Filter asesores based on search query
+  const filteredAsesores = asesores.filter((asesor) => {
+    const searchLower = searchQuery.toLowerCase()
+    return (
+      asesor.nombre.toLowerCase().includes(searchLower) ||
+      asesor.universidad.toLowerCase().includes(searchLower) ||
+      asesor.especialidades.some((esp) => esp.toLowerCase().includes(searchLower))
+    )
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -221,96 +145,164 @@ export default function AsesoresPage() {
           </CardContent>
         </Card>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-red-600 mb-4" />
+            <p className="text-gray-600">Cargando asesores...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {!loading && error && (
+          <Card className="border-gray-200">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <Users className="h-8 w-8 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No se pudieron cargar los asesores</h3>
+              <p className="text-gray-600 text-center max-w-md mb-4">
+                Hubo un problema al conectar con la base de datos. Por favor, intenta nuevamente más tarde.
+              </p>
+              <Button onClick={() => window.location.reload()} className="bg-red-600 hover:bg-red-700 text-white">
+                Reintentar
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty State */}
+        {!loading && !error && filteredAsesores.length === 0 && (
+          <Card className="border-gray-200">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <Users className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {searchQuery ? "No se encontraron resultados" : "No hay asesores disponibles"}
+              </h3>
+              <p className="text-gray-600 text-center max-w-md">
+                {searchQuery 
+                  ? "Intenta con otros términos de búsqueda o ajusta los filtros."
+                  : "Aún no hay asesores registrados en la plataforma. Vuelve pronto para encontrar tu asesor ideal."
+                }
+              </p>
+              {searchQuery && (
+                <Button 
+                  variant="outline" 
+                  className="mt-4 border-gray-300"
+                  onClick={() => setSearchQuery("")}
+                >
+                  Limpiar búsqueda
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Results */}
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-gray-600">
-            <span className="font-semibold text-gray-900">{asesores.length}</span> asesores encontrados
-          </p>
-          <Select defaultValue="relevancia">
-            <SelectTrigger className="w-[180px] border-gray-300">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="relevancia">Más Relevantes</SelectItem>
-              <SelectItem value="rating">Mejor Calificados</SelectItem>
-              <SelectItem value="sesiones">Más Experiencia</SelectItem>
-              <SelectItem value="precio-asc">Menor Precio</SelectItem>
-              <SelectItem value="precio-desc">Mayor Precio</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {!loading && !error && filteredAsesores.length > 0 && (
+          <>
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-gray-600">
+                <span className="font-semibold text-gray-900">{filteredAsesores.length}</span> asesores encontrados
+              </p>
+              <Select defaultValue="relevancia">
+                <SelectTrigger className="w-[180px] border-gray-300">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="relevancia">Más Relevantes</SelectItem>
+                  <SelectItem value="rating">Mejor Calificados</SelectItem>
+                  <SelectItem value="sesiones">Más Experiencia</SelectItem>
+                  <SelectItem value="precio-asc">Menor Precio</SelectItem>
+                  <SelectItem value="precio-desc">Mayor Precio</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        {/* Advisor Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {asesores.map((asesor) => (
-            <Card key={asesor.id} className="border-gray-200 hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                {/* Advisor Header */}
-                <div className="flex items-start gap-4 mb-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={asesor.avatar || "/placeholder.svg"} />
-                    <AvatarFallback className="bg-red-100 text-red-600 text-lg">
-                      {asesor.nombre
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg text-gray-900">{asesor.nombre}</h3>
-                    <p className="text-sm text-gray-600">{asesor.carrera}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm font-medium text-gray-900">{asesor.rating}</span>
-                      <span className="text-xs text-gray-500">({asesor.sesiones} sesiones)</span>
+            {/* Advisor Cards */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredAsesores.map((asesor) => (
+                <Card key={asesor.id} className="border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardContent className="p-6">
+                    {/* Advisor Header */}
+                    <div className="flex items-start gap-4 mb-4">
+                      <Avatar className="h-16 w-16">
+                        <AvatarImage src={asesor.avatar_url || "/placeholder.svg"} />
+                        <AvatarFallback className="bg-red-100 text-red-600 text-lg">
+                          {asesor.nombre
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg text-gray-900">{asesor.nombre}</h3>
+                        <p className="text-sm text-gray-600">{asesor.carrera}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm font-medium text-gray-900">{asesor.rating.toFixed(1)}</span>
+                          <span className="text-xs text-gray-500">({asesor.sesiones_completadas} sesiones)</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Specialties */}
-                <div className="mb-4">
-                  <div className="flex flex-wrap gap-2">
-                    {asesor.especialidades.map((esp, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-xs">
-                        {esp}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+                    {/* Specialties */}
+                    <div className="mb-4">
+                      <div className="flex flex-wrap gap-2">
+                        {asesor.especialidades.slice(0, 3).map((esp, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {esp}
+                          </Badge>
+                        ))}
+                        {asesor.especialidades.length > 3 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{asesor.especialidades.length - 3} más
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
 
-                {/* Info */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <MapPin className="h-4 w-4 text-gray-400" />
-                    <span>{asesor.universidad}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Clock className="h-4 w-4 text-gray-400" />
-                    <span>{asesor.disponibilidad}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <BookOpen className="h-4 w-4 text-gray-400" />
-                    <span>{asesor.modalidad.join(", ")}</span>
-                  </div>
-                </div>
+                    {/* Info */}
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <MapPin className="h-4 w-4 text-gray-400" />
+                        <span>{asesor.universidad}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Clock className="h-4 w-4 text-gray-400" />
+                        <span>{asesor.disponibilidad || "Disponibilidad flexible"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <BookOpen className="h-4 w-4 text-gray-400" />
+                        <span>{asesor.modalidad.length > 0 ? asesor.modalidad.join(", ") : "Virtual"}</span>
+                      </div>
+                    </div>
 
-                {/* Description */}
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{asesor.descripcion}</p>
+                    {/* Description */}
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                      {asesor.descripcion || "Asesor disponible para ayudarte con tus estudios."}
+                    </p>
 
-                {/* Footer */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                  <div>
-                    <span className="text-2xl font-bold text-gray-900">${asesor.precio.toLocaleString()}</span>
-                    <span className="text-sm text-gray-600">/hora</span>
-                  </div>
-                  <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
-                    <Link href={`/asesores/${asesor.id}`}>Ver Perfil</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    {/* Footer */}
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                      <div>
+                        <span className="text-2xl font-bold text-gray-900">
+                          ${asesor.precio_por_hora.toLocaleString()}
+                        </span>
+                        <span className="text-sm text-gray-600">/hora</span>
+                      </div>
+                      <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
+                        <Link href={`/asesores/${asesor.id}`}>Ver Perfil</Link>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
       </main>
     </div>
   )

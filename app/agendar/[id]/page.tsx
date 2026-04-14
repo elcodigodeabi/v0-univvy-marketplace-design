@@ -1,8 +1,8 @@
 "use client"
 
-import { use, useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -38,8 +38,8 @@ interface SelectedSlot {
   dateString: string
 }
 
-export default function AgendarSesionPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params)
+export default function AgendarSesionPage() {
+  const params = useParams<{ id: string }>()
   const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date(2025, 0, 1))
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([])
@@ -50,7 +50,7 @@ export default function AgendarSesionPage({ params }: { params: Promise<{ id: st
 
   // Mock asesor data
   const asesor = {
-    id: Number.parseInt(resolvedParams.id),
+    id: Number.parseInt(params.id),
     nombre: "Ana Martínez",
     especialidades: ["Álgebra Lineal", "Cálculo Multivariable"],
     universidad: "Universidad Nacional",
@@ -142,20 +142,15 @@ export default function AgendarSesionPage({ params }: { params: Promise<{ id: st
   const handleConfirmBooking = () => {
     setIsLoading(true)
     
-    // Simulate API call
+    // Generate a session ID and redirect to payment
+    const sessionId = `session-${Date.now()}`
+    
     setTimeout(() => {
       setIsLoading(false)
       setIsConfirmDialogOpen(false)
-      toast.success(
-        selectedSlots.length === 1 
-          ? "Sesión agendada exitosamente" 
-          : `${selectedSlots.length} sesiones agendadas exitosamente`,
-        {
-          description: `Te hemos enviado un correo con los detalles de tu${selectedSlots.length > 1 ? "s" : ""} sesión${selectedSlots.length > 1 ? "es" : ""} con ${asesor.nombre}.`,
-        }
-      )
-      router.push("/mis-sesiones")
-    }, 1500)
+      // Redirect to payment page
+      router.push(`/pago/${sessionId}`)
+    }, 500)
   }
 
   const totalCost = selectedSlots.length * asesor.precio
@@ -169,7 +164,7 @@ export default function AgendarSesionPage({ params }: { params: Promise<{ id: st
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild size="sm">
-              <Link href={`/asesores/${resolvedParams.id}`}>
+              <Link href={`/asesores/${params.id}`}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Volver al perfil
               </Link>
