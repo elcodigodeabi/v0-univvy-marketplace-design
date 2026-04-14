@@ -28,23 +28,28 @@ export function useAuth() {
         const { data: { user: authUser } } = await supabase.auth.getUser()
         
         if (authUser) {
-          // Try to get profile data from database
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", authUser.id)
-            .single()
+          // Try to get profile data from database (gracefully handle if table doesn't exist)
+          try {
+            const { data: profile, error } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", authUser.id)
+              .single()
 
-          if (profile) {
-            setUser(mapProfileToUser(authUser, profile))
-          } else {
+            if (profile && !error) {
+              setUser(mapProfileToUser(authUser, profile))
+            } else {
+              // Table doesn't exist or no profile found - use auth metadata
+              setUser(mapSupabaseUser(authUser))
+            }
+          } catch {
+            // Table doesn't exist - use auth metadata
             setUser(mapSupabaseUser(authUser))
           }
         } else {
           setUser(null)
         }
       } catch (err) {
-        console.log("[v0] Error getting user:", err)
         setUser(null)
       } finally {
         setLoading(false)
@@ -56,16 +61,21 @@ export function useAuth() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        // Try to get profile data
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single()
+        // Try to get profile data (gracefully handle if table doesn't exist)
+        try {
+          const { data: profile, error } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single()
 
-        if (profile) {
-          setUser(mapProfileToUser(session.user, profile))
-        } else {
+          if (profile && !error) {
+            setUser(mapProfileToUser(session.user, profile))
+          } else {
+            setUser(mapSupabaseUser(session.user))
+          }
+        } catch {
+          // Table doesn't exist - use auth metadata
           setUser(mapSupabaseUser(session.user))
         }
       } else {
