@@ -48,7 +48,7 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button asChild size="lg" className="bg-red-600 hover:bg-red-700 text-white text-lg px-8">
-                  <Link href="/registro?tipo=alumno">Buscar Asesor</Link>
+                  <Link href="/buscar">Buscar Asesor</Link>
                 </Button>
                 <Button
                   asChild
@@ -296,7 +296,7 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm text-gray-400">
                 <li>
                   <Link href="/buscar" className="hover:text-white transition-colors">
-                    Buscar Asesores
+                    Buscar
                   </Link>
                 </li>
                 <li>

@@ -27,7 +27,6 @@ interface Session {
 export default function DashboardPage() {
   const { user } = useAuth()
   const { asesores, loading: loadingAsesores } = useAsesores()
-  const [searchQuery, setSearchQuery] = useState("")
   const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([])
   const [loadingSessions, setLoadingSessions] = useState(true)
   const [stats, setStats] = useState({
@@ -92,13 +91,16 @@ export default function DashboardPage() {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-6">
-              <Link href="/dashboard" className="text-red-600 font-medium">
-                Inicio
-              </Link>
-              <Link href="/asesores" className="text-gray-700 hover:text-red-600 transition-colors">
-                Buscar Asesores
-              </Link>
+<nav className="hidden md:flex items-center gap-6">
+  <Link href="/dashboard" className="text-red-600 font-medium">
+  Inicio
+  </Link>
+  <Link href="/buscar" className="text-gray-700 hover:text-red-600 transition-colors">
+  Buscar
+  </Link>
+  <Link href="/asesores" className="text-gray-700 hover:text-red-600 transition-colors">
+  Asesores
+  </Link>
               <Link href="/mis-sesiones" className="text-gray-700 hover:text-red-600 transition-colors">
                 Mis Sesiones
               </Link>
@@ -133,26 +135,27 @@ export default function DashboardPage() {
           <p className="text-gray-600">Encuentra el apoyo académico que necesitas</p>
         </div>
 
-        {/* Quick Search */}
-        <Card className="mb-8 border-gray-200">
-          <CardContent className="p-6">
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Busca por materia, asesor o universidad..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 border-gray-300"
-                />
-              </div>
-              <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
-                <Link href={`/asesores?q=${encodeURIComponent(searchQuery)}`}>Buscar</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+{/* Quick Search - Redirects to /buscar */}
+  <Link href="/buscar">
+  <Card className="mb-8 border-gray-200 hover:shadow-md hover:border-red-200 transition-all cursor-pointer">
+  <CardContent className="p-6">
+  <div className="flex gap-3">
+  <div className="relative flex-1">
+  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+  <Input
+  type="text"
+  placeholder="Busca materias, profesores o universidades..."
+  className="pl-10 border-gray-300 cursor-pointer pointer-events-none"
+  readOnly
+  />
+  </div>
+  <Button className="bg-red-600 hover:bg-red-700 text-white pointer-events-none">
+  Buscar
+  </Button>
+  </div>
+  </CardContent>
+  </Card>
+  </Link>
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column - Main Content */}
