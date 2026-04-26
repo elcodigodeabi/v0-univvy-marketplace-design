@@ -166,16 +166,27 @@ export default function BuscarPage() {
     setHasSearched(true)
 
     const supabase = createClient()
+    const queryLower = query.toLowerCase().trim()
 
     try {
-      // Fetch all asesores and filter/score client-side for better relevance
+      // 1. Search materias table to find matching subject names and their grados
+      const { data: materiasData } = await supabase
+        .from("materias")
+        .select("nombre, grado, bloque")
+        .ilike("nombre", `%${query}%`)
+        .limit(30)
+
+      // Collect matching subject names and grados from materias
+      const matchingMateriaNames: string[] = (materiasData || []).map((m: any) => m.nombre)
+      const matchingGrados: string[] = [...new Set((materiasData || []).map((m: any) => m.grado as string))]
+
+      // 2. Fetch all asesores
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, avatar_url, universidad, carrera, especialidades, rating, sesiones_completadas, precio_por_hora")
         .eq("role", "asesor")
 
       if (error) {
-        console.log("[v0] Search error:", error.message)
         setResults([])
         return
       }
@@ -185,52 +196,85 @@ export default function BuscarPage() {
         return
       }
 
-      // Map and calculate relevance scores
-      const queryLower = query.toLowerCase().trim()
+      // 3. Score each asesor — boost those whose especialidades match real materias
       const scoredResults: SearchResult[] = data
         .map((profile: any) => {
+          const especialidades: string[] = profile.especialidades || []
           const result: SearchResult = {
             id: profile.id,
             nombre: profile.full_name || "Sin nombre",
             avatar_url: profile.avatar_url,
             universidad: profile.universidad || "Sin universidad",
             carrera: profile.carrera || "Sin carrera",
-            especialidades: profile.especialidades || [],
+            especialidades,
             rating: profile.rating || 0,
             sesiones_completadas: profile.sesiones_completadas || 0,
             precio_por_hora: profile.precio_por_hora || 0,
             relevanceScore: 0,
           }
-          result.relevanceScore = calculateRelevanceScore(result, query)
+
+          let score = calculateRelevanceScore(result, query)
+
+          // Boost if asesor teaches a subject that matches a real materia
+          matchingMateriaNames.forEach((matName) => {
+            const matLower = matName.toLowerCase()
+            especialidades.forEach((esp) => {
+              if (esp.toLowerCase().includes(matLower) || matLower.includes(esp.toLowerCase())) {
+                score += 60
+              }
+            })
+          })
+
+          // Boost if asesor's carrera/grado matches a grado that has the searched subject
+          matchingGrados.forEach((grado) => {
+            const gradoLower = grado.toLowerCase()
+            if (
+              result.carrera.toLowerCase().includes(gradoLower) ||
+              gradoLower.includes(result.carrera.toLowerCase().split(" ")[0])
+            ) {
+              score += 25
+            }
+          })
+
+          result.relevanceScore = score
           return result
         })
         .filter((result) => {
-          // Filter results that have any match
+          const queryWords = queryLower.split(/\s+/).filter((w) => w.length >= 3)
+
+          // Direct text matches
           const nombreMatch = result.nombre.toLowerCase().includes(queryLower)
           const uniMatch = result.universidad.toLowerCase().includes(queryLower)
           const carreraMatch = result.carrera.toLowerCase().includes(queryLower)
-          const espMatch = result.especialidades.some((esp) => 
+          const espMatch = result.especialidades.some((esp) =>
             esp.toLowerCase().includes(queryLower)
           )
-          // Also check individual words
-          const queryWords = queryLower.split(/\s+/)
-          const wordMatch = queryWords.some((word) => {
-            if (word.length < 3) return false
-            return (
-              result.nombre.toLowerCase().includes(word) ||
-              result.universidad.toLowerCase().includes(word) ||
-              result.carrera.toLowerCase().includes(word) ||
-              result.especialidades.some((esp) => esp.toLowerCase().includes(word))
+          const wordMatch = queryWords.some((word) =>
+            result.nombre.toLowerCase().includes(word) ||
+            result.universidad.toLowerCase().includes(word) ||
+            result.carrera.toLowerCase().includes(word) ||
+            result.especialidades.some((esp) => esp.toLowerCase().includes(word))
+          )
+
+          // Indirect match via materias table
+          const materiasMatch =
+            matchingMateriaNames.some((mat) =>
+              result.especialidades.some((esp) =>
+                esp.toLowerCase().includes(mat.toLowerCase()) ||
+                mat.toLowerCase().includes(esp.toLowerCase())
+              )
+            ) ||
+            matchingGrados.some((grado) =>
+              result.carrera.toLowerCase().includes(grado.toLowerCase().split("+")[0])
             )
-          })
-          return nombreMatch || uniMatch || carreraMatch || espMatch || wordMatch
+
+          return nombreMatch || uniMatch || carreraMatch || espMatch || wordMatch || materiasMatch
         })
         .sort((a, b) => b.relevanceScore - a.relevanceScore)
 
       setResults(scoredResults)
       saveRecentSearch(query)
     } catch (err) {
-      console.log("[v0] Search exception:", err)
       setResults([])
     } finally {
       setLoading(false)
