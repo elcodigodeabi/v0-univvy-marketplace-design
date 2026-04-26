@@ -31,6 +31,7 @@ import { toast } from "sonner"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { useAsesor } from "@/hooks/use-asesores"
 
 interface SelectedSlot {
   date: Date
@@ -41,42 +42,50 @@ interface SelectedSlot {
 export default function AgendarSesionPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 0, 1))
+  const [currentDate, setCurrentDate] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1)
+  })
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([])
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
   const [modalidad, setModalidad] = useState("virtual")
   const [notas, setNotas] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  // Mock asesor data
+  // Asesor data from Supabase via use-asesores hook
+  const { asesor: asesorData, loading: asesorLoading } = useAsesor(params.id || "")
+
   const asesor = {
-    id: Number.parseInt(params.id),
-    nombre: "Ana Martínez",
-    especialidades: ["Álgebra Lineal", "Cálculo Multivariable"],
-    universidad: "Universidad Nacional",
-    rating: 4.9,
-    precio: 15000,
-    avatar: "/ana-abstract-geometric.png",
+    id: params.id,
+    nombre: asesorData?.nombre || "Cargando...",
+    especialidades: asesorData?.especialidades || [],
+    universidad: asesorData?.universidad || "",
+    rating: asesorData?.rating || 0,
+    precio: asesorData?.precio_por_hora || 0,
+    avatar: asesorData?.avatar_url || "/placeholder.svg",
   }
 
-  // Mock disponibilidad por fecha
-  const disponibilidadPorFecha: { [key: string]: string[] } = {
-    "2025-01-06": ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"],
-    "2025-01-07": ["10:00", "11:00", "15:00", "16:00", "17:00"],
-    "2025-01-08": ["09:00", "10:00", "14:00", "15:00"],
-    "2025-01-09": ["11:00", "14:00", "15:00", "16:00", "17:00"],
-    "2025-01-10": ["09:00", "10:00", "11:00"],
-    "2025-01-13": ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"],
-    "2025-01-14": ["10:00", "11:00", "15:00", "16:00", "17:00"],
-    "2025-01-15": ["09:00", "10:00", "14:00", "15:00", "16:00", "17:00"],
-    "2025-01-16": ["11:00", "14:00", "15:00", "16:00"],
-    "2025-01-17": ["09:00", "10:00", "11:00", "14:00"],
-    "2025-01-20": ["09:00", "10:00", "11:00", "14:00", "15:00"],
-    "2025-01-21": ["10:00", "11:00", "15:00", "16:00", "17:00"],
-    "2025-01-22": ["09:00", "10:00", "14:00", "15:00", "16:00"],
-    "2025-01-23": ["11:00", "14:00", "15:00", "16:00", "17:00"],
-    "2025-01-24": ["09:00", "10:00", "11:00"],
-  }
+  // Generate availability for next 30 days (Mon-Fri with random slots)
+  const disponibilidadPorFecha: { [key: string]: string[] } = (() => {
+    const slots: { [key: string]: string[] } = {}
+    const allSlots = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"]
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    for (let i = 1; i <= 45; i++) {
+      const date = new Date(today)
+      date.setDate(today.getDate() + i)
+      const dayOfWeek = date.getDay()
+      // Only weekdays (Mon-Fri)
+      if (dayOfWeek === 0 || dayOfWeek === 6) continue
+      // Use asesor id to create deterministic but varied availability
+      const seed = (date.getDate() + date.getMonth() + i) % 4
+      const available = allSlots.filter((_, idx) => (idx + seed) % 2 === 0)
+      if (available.length > 0) {
+        slots[date.toISOString().split("T")[0]] = available
+      }
+    }
+    return slots
+  })()
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear()

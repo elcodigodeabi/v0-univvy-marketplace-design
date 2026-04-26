@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { 
   Search, 
   ArrowLeft, 
@@ -17,7 +18,11 @@ import {
   Loader2, 
   Users,
   GraduationCap,
-  X
+  X,
+  Calendar,
+  MessageSquare,
+  CheckCircle2,
+  ChevronRight,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -123,6 +128,7 @@ export default function BuscarPage() {
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [selectedAsesor, setSelectedAsesor] = useState<SearchResult | null>(null)
 
   const debouncedQuery = useDebounce(searchQuery, 300)
 
@@ -236,8 +242,12 @@ export default function BuscarPage() {
     performSearch(debouncedQuery)
   }, [debouncedQuery, performSearch])
 
-  const handleResultClick = (id: string) => {
-    router.push(`/asesores/${id}`)
+  const handleResultClick = (result: SearchResult) => {
+    setSelectedAsesor(result)
+  }
+
+  const handleCloseDetail = () => {
+    setSelectedAsesor(null)
   }
 
   const handleRecentSearchClick = (query: string) => {
@@ -290,6 +300,153 @@ export default function BuscarPage() {
           </div>
         </div>
       </header>
+
+      {/* Asesor Detail Panel */}
+      {selectedAsesor && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div
+            className="flex-1 bg-black/50"
+            onClick={handleCloseDetail}
+          />
+          {/* Panel */}
+          <div className="w-full max-w-lg bg-white shadow-2xl overflow-y-auto flex flex-col">
+            {/* Panel Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+              <button
+                onClick={handleCloseDetail}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <X className="h-5 w-5" />
+                <span className="font-medium">Cerrar</span>
+              </button>
+              <Link
+                href={`/asesores/${selectedAsesor.id}`}
+                className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium"
+              >
+                Ver perfil completo
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            {/* Panel Content */}
+            <div className="flex-1 p-6 space-y-6">
+              {/* Asesor Header */}
+              <div className="flex items-start gap-4">
+                <Avatar className="h-24 w-24 flex-shrink-0">
+                  <AvatarImage src={selectedAsesor.avatar_url || "/placeholder.svg"} />
+                  <AvatarFallback className="bg-red-100 text-red-600 text-2xl">
+                    {selectedAsesor.nombre.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedAsesor.nombre}</h2>
+                  <p className="text-gray-600 mb-2">{selectedAsesor.carrera}</p>
+                  <div className="flex items-center gap-1">
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <span className="font-semibold text-gray-900">{selectedAsesor.rating.toFixed(1)}</span>
+                    <span className="text-sm text-gray-500">({selectedAsesor.sesiones_completadas} sesiones)</span>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Universidad */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Universidad</h3>
+                <div className="flex items-center gap-2 text-gray-900">
+                  <MapPin className="h-5 w-5 text-red-600 flex-shrink-0" />
+                  <span className="font-medium">{selectedAsesor.universidad}</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Materias */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Materias que dicta</h3>
+                {selectedAsesor.especialidades.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedAsesor.especialidades.map((esp, idx) => (
+                      <Badge
+                        key={idx}
+                        variant="secondary"
+                        className="text-sm bg-red-50 text-red-700 hover:bg-red-100 px-3 py-1"
+                      >
+                        <BookOpen className="h-3.5 w-3.5 mr-1.5" />
+                        {esp}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">No especificadas</p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Precio */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">Precio por hora</h3>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold text-gray-900">
+                      S/ {selectedAsesor.precio_por_hora.toLocaleString()}
+                    </span>
+                    <span className="text-gray-500">/hora</span>
+                  </div>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-center">
+                  <p className="text-xs text-green-700 font-medium">Primera sesión</p>
+                  <p className="text-sm font-bold text-green-800">20% OFF</p>
+                </div>
+              </div>
+
+              {/* What's included */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-gray-900 text-sm mb-3">¿Qué incluye?</h4>
+                {[
+                  "Sesión personalizada uno a uno",
+                  "Material de apoyo incluido",
+                  "Seguimiento post-sesión",
+                  "Garantía de satisfacción",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-sm text-gray-700">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Panel Footer - CTA */}
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 space-y-3">
+              <Button
+                asChild
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                size="lg"
+              >
+                <Link href={`/agendar/${selectedAsesor.id}`}>
+                  <Calendar className="mr-2 h-5 w-5" />
+                  Reservar clase
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full border-gray-300 bg-transparent"
+                size="lg"
+                asChild
+              >
+                <Link href={`/asesores/${selectedAsesor.id}`}>
+                  <MessageSquare className="mr-2 h-5 w-5" />
+                  Ver perfil completo
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
@@ -406,7 +563,7 @@ export default function BuscarPage() {
                   <Card
                     key={result.id}
                     className="border-gray-200 hover:shadow-lg hover:border-red-200 transition-all cursor-pointer"
-                    onClick={() => handleResultClick(result.id)}
+                    onClick={() => handleResultClick(result)}
                   >
                     <CardContent className="p-6">
                       <div className="flex items-start gap-4">
