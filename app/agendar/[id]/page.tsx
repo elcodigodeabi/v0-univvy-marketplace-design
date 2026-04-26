@@ -32,6 +32,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAsesor } from "@/hooks/use-asesores"
+import { createBooking } from "@/app/actions/bookings"
 
 interface SelectedSlot {
   date: Date
@@ -148,18 +149,38 @@ export default function AgendarSesionPage() {
     return `${date.getDate()} de ${monthNames[date.getMonth()]}`
   }
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
+    if (selectedSlots.length === 0 || !asesorData) return
     setIsLoading(true)
-    
-    // Generate a session ID and redirect to payment
-    const sessionId = `session-${Date.now()}`
-    
-    setTimeout(() => {
+
+    try {
+      // Only book the first selected slot (one booking per checkout flow)
+      const slot = selectedSlots.sort(
+        (a, b) => new Date(a.dateString).getTime() - new Date(b.dateString).getTime()
+      )[0]
+
+      // Build ISO scheduledAt from date + time
+      const [hour, minute] = slot.time.split(":").map(Number)
+      const scheduledDate = new Date(slot.date)
+      scheduledDate.setHours(hour, minute, 0, 0)
+
+      const { checkoutUrl } = await createBooking({
+        advisorId: params.id!,
+        advisorName: asesor.nombre,
+        scheduledAt: scheduledDate.toISOString(),
+        durationMinutes: 60,
+        modalidad: modalidad as "virtual" | "presencial",
+        notes: notas || undefined,
+        subject: asesor.especialidades[0] || undefined,
+        pricePerHour: asesor.precio,
+      })
+
+      // Redirect to Stripe Checkout
+      window.location.href = checkoutUrl
+    } catch (error: any) {
+      toast.error(error?.message || "Error al crear la reserva. Intenta de nuevo.")
       setIsLoading(false)
-      setIsConfirmDialogOpen(false)
-      // Redirect to payment page
-      router.push(`/pago/${sessionId}`)
-    }, 500)
+    }
   }
 
   const totalCost = selectedSlots.length * asesor.precio
