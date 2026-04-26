@@ -140,9 +140,9 @@ export default function PagoPage() {
                 </Button>
                 <Link href="/" className="flex items-center gap-2">
                   <img
-                    src="/univvy-logo.jpg"
+                    src="/univvy-logo.png"
                     alt="Univvy"
-                    className="h-10 w-auto rounded-full border border-gray-100 shadow-sm"
+                    className="h-10 w-auto"
                   />
                 </Link>
               </div>

@@ -70,9 +70,9 @@ export default function PagoExitoPage() {
         <div className="container mx-auto px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
             <img
-              src="/univvy-logo.jpg"
+              src="/univvy-logo.png"
               alt="Univvy"
-              className="h-10 w-auto rounded-full border border-gray-100 shadow-sm"
+              className="h-10 w-auto"
             />
           </Link>
         </div>

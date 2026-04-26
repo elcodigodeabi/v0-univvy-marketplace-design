@@ -10,7 +10,7 @@ export default function LandingPage() {
       <header className="border-b border-gray-200">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
+            <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto" />
           </Link>
           <nav className="hidden md:flex items-center gap-8">
             <Link href="#servicios" className="text-gray-700 hover:text-red-600 transition-colors">
@@ -287,7 +287,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <Link href="/" className="flex items-center gap-2 mb-4">
-                <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full bg-white p-1 shadow-sm" />
+                <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto brightness-0 invert" />
               </Link>
               <p className="text-gray-400 text-sm">Conectando estudiantes con asesores académicos de calidad.</p>
             </div>
