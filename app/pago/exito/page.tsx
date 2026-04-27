@@ -81,7 +81,7 @@ export default function PagoExitoPage() {
   }, [checkoutSessionId, bookingId])
 
   const formatDate = (isoStr: string) => {
-    return new Date(isoStr).toLocaleDateString("es-PE", {
+    return new Date(isoStr).toLocaleDateString("es-ES", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -90,13 +90,14 @@ export default function PagoExitoPage() {
   }
 
   const formatTime = (isoStr: string) => {
-    return new Date(isoStr).toLocaleTimeString("es-PE", {
+    return new Date(isoStr).toLocaleTimeString("es-ES", {
       hour: "2-digit",
       minute: "2-digit",
     })
   }
 
-  const formatPrice = (centimos: number) => `S/ ${(centimos / 100).toFixed(2)}`
+  const formatPrice = (cents: number) =>
+    new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(cents / 100)
 
   if (loading) {
     return (
