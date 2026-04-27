@@ -192,8 +192,8 @@ export async function testCheckoutSessionCreation() {
           quantity: 1,
         },
       ],
-      success_url: 'http://localhost:3000/pago/exito?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'http://localhost:3000/agendar',
+      success_url: 'https://univvymockups.vercel.app/pago/exito?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: 'https://univvymockups.vercel.app/agendar',
       customer_email: 'test@example.com',
       metadata: {
         test: 'true',
