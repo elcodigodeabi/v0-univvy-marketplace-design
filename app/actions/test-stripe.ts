@@ -1,8 +1,9 @@
 'use server'
 
 import { stripe, calculatePricing, formatEUR } from '@/lib/stripe'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import Stripe from 'stripe'
+import { cookies } from 'next/headers'
 
 /**
  * Test function: Validate Stripe integration
@@ -96,10 +97,30 @@ export async function validateStripeIntegration() {
 
   // Test 4: Supabase connection
   try {
-    const supabase = createClient()
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              )
+            } catch {
+              // Handle errors in SSR context
+            }
+          },
+        },
+      }
+    )
     const { data: testData, error } = await supabase
       .from('profiles')
-      .select('count')
+      .select('id')
       .limit(1)
 
     if (!error) {
@@ -150,12 +171,8 @@ export async function validateStripeIntegration() {
   return results
 }
 
-/**
- * Test creating a test checkout session (without payment)
- */
 export async function testCheckoutSessionCreation() {
   try {
-    const { calculatePricing } = await import('@/lib/stripe')
     const pricing = calculatePricing(25, 60)
 
     const session = await stripe.checkout.sessions.create({
