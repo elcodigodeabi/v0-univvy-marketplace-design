@@ -10,8 +10,15 @@ export async function POST(req: NextRequest) {
   const body = await req.text()
   const sig = req.headers.get("stripe-signature")
 
-  if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: "Missing stripe signature or webhook secret" }, { status: 400 })
+  // Security: Validate signature and webhook secret are present
+  if (!sig) {
+    console.error("[webhook] Missing stripe-signature header")
+    return NextResponse.json({ error: "Missing stripe-signature" }, { status: 401 })
+  }
+
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.error("[webhook] STRIPE_WEBHOOK_SECRET not configured")
+    return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 })
   }
 
   let event: Stripe.Event
@@ -20,7 +27,13 @@ export async function POST(req: NextRequest) {
     event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET)
   } catch (err: any) {
     console.error("[webhook] Signature verification failed:", err.message)
-    return NextResponse.json({ error: `Webhook error: ${err.message}` }, { status: 400 })
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+  }
+
+  // Security: Only accept events from test or live mode
+  if (!event.id || !event.type) {
+    console.error("[webhook] Invalid event structure")
+    return NextResponse.json({ error: "Invalid event" }, { status: 400 })
   }
 
   const supabase = createServiceClient()
@@ -34,7 +47,10 @@ export async function POST(req: NextRequest) {
         if (session.payment_status !== "paid") break
 
         const bookingId = session.metadata?.booking_id
-        if (!bookingId) break
+        if (!bookingId) {
+          console.warn("[webhook] Missing booking_id in session metadata", session.id)
+          break
+        }
 
         const paymentIntentId =
           typeof session.payment_intent === "string"
@@ -42,7 +58,7 @@ export async function POST(req: NextRequest) {
             : session.payment_intent?.id ?? null
 
         // Idempotent: only update if still pending_payment
-        const { data: booking } = await supabase
+        const { data: booking, error: bookingError } = await supabase
           .from("bookings")
           .update({
             status: "confirmed",
@@ -54,9 +70,14 @@ export async function POST(req: NextRequest) {
           .select()
           .single()
 
+        if (bookingError) {
+          console.error("[webhook] Failed to update booking:", bookingError.message)
+          break
+        }
+
         if (booking) {
           // Upsert payment escrow record
-          await supabase.from("payments").upsert(
+          const { error: paymentError } = await supabase.from("payments").upsert(
             {
               booking_id: booking.id,
               payer_id: booking.student_id,
@@ -71,6 +92,10 @@ export async function POST(req: NextRequest) {
             },
             { onConflict: "booking_id" }
           )
+          
+          if (paymentError) {
+            console.error("[webhook] Failed to create payment record:", paymentError.message)
+          }
         }
         break
       }
@@ -79,13 +104,24 @@ export async function POST(req: NextRequest) {
       case "payment_intent.payment_failed": {
         const pi = event.data.object as Stripe.PaymentIntent
         const bookingId = pi.metadata?.booking_id
-        if (!bookingId) break
+        if (!bookingId) {
+          console.warn("[webhook] Missing booking_id in payment intent metadata", pi.id)
+          break
+        }
 
-        await supabase
+        const { error } = await supabase
           .from("bookings")
-          .update({ status: "cancelled", cancellation_reason: "Pago fallido", cancelled_at: new Date().toISOString() })
+          .update({ 
+            status: "cancelled", 
+            cancellation_reason: "Pago fallido", 
+            cancelled_at: new Date().toISOString() 
+          })
           .eq("id", bookingId)
           .eq("status", "pending_payment")
+        
+        if (error) {
+          console.error("[webhook] Failed to cancel booking:", error.message)
+        }
         break
       }
 
@@ -96,9 +132,12 @@ export async function POST(req: NextRequest) {
           ? charge.payment_intent
           : charge.payment_intent?.id
 
-        if (!piId) break
+        if (!piId) {
+          console.warn("[webhook] Missing payment_intent in refund", charge.id)
+          break
+        }
 
-        await supabase
+        const { error: paymentError } = await supabase
           .from("payments")
           .update({
             status: "refunded",
@@ -107,11 +146,15 @@ export async function POST(req: NextRequest) {
           })
           .eq("stripe_payment_intent_id", piId)
 
-        await supabase
+        const { error: bookingError } = await supabase
           .from("bookings")
           .update({ status: "refunded" })
           .eq("stripe_payment_intent_id", piId)
           .in("status", ["confirmed", "disputed"])
+        
+        if (paymentError || bookingError) {
+          console.error("[webhook] Refund update failed:", paymentError?.message || bookingError?.message)
+        }
         break
       }
 
@@ -121,7 +164,7 @@ export async function POST(req: NextRequest) {
         const bookingId = transfer.metadata?.booking_id
         if (!bookingId || transfer.metadata?.type !== "escrow_release") break
 
-        await supabase
+        const { error } = await supabase
           .from("payments")
           .update({
             status: "released",
@@ -129,6 +172,10 @@ export async function POST(req: NextRequest) {
             escrow_released_at: new Date().toISOString(),
           })
           .eq("booking_id", bookingId)
+        
+        if (error) {
+          console.error("[webhook] Failed to update transfer:", error.message)
+        }
         break
       }
 
@@ -139,12 +186,19 @@ export async function POST(req: NextRequest) {
           ? dispute.payment_intent
           : dispute.payment_intent?.id
 
-        if (!piId) break
+        if (!piId) {
+          console.warn("[webhook] Missing payment_intent in dispute", dispute.id)
+          break
+        }
 
-        await supabase
+        const { error } = await supabase
           .from("bookings")
           .update({ status: "disputed" })
           .eq("stripe_payment_intent_id", piId)
+        
+        if (error) {
+          console.error("[webhook] Failed to mark booking as disputed:", error.message)
+        }
         break
       }
 
@@ -155,7 +209,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true })
   } catch (err: any) {
-    console.error("[webhook] Handler error:", err)
-    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 })
+    console.error("[webhook] Unexpected handler error:", err.message)
+    return NextResponse.json({ error: "Webhook handler error" }, { status: 500 })
   }
 }
