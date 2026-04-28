@@ -25,6 +25,8 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { getMyBookings, studentConfirmSession } from "@/app/actions/bookings"
+import { getOrCreateChatByBooking } from "@/app/actions/chat"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 type Booking = Awaited<ReturnType<typeof getMyBookings>>[number]
@@ -82,11 +84,24 @@ function isSessionPast(scheduledAt: string) {
 
 export default function MisSesionesPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState("proximas")
   const [loading, setLoading] = useState(true)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [confirming, startConfirming] = useTransition()
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [openingChat, setOpeningChat] = useState<string | null>(null)
+
+  const handleOpenChat = async (bookingId: string) => {
+    setOpeningChat(bookingId)
+    const result = await getOrCreateChatByBooking(bookingId)
+    if (result.error) {
+      toast.error(result.error)
+    } else if (result.chatId) {
+      router.push(`/mensajes/${result.chatId}`)
+    }
+    setOpeningChat(null)
+  }
 
   useEffect(() => {
     if (!user?.id) { setLoading(false); return }
@@ -240,12 +255,21 @@ export default function MisSesionesPage() {
                 Calificar asesor
               </Button>
             )}
-            <Button variant="outline" asChild className="border-gray-300 bg-transparent">
-              <Link href={`/mensajes?user=${b.advisor_id}`}>
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Mensaje
-              </Link>
-            </Button>
+            {b.status === "confirmed" && (
+              <Button
+                variant="outline"
+                className="border-gray-300 bg-transparent"
+                onClick={() => handleOpenChat(b.id)}
+                disabled={openingChat === b.id}
+              >
+                {openingChat === b.id ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                )}
+                Chat
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
