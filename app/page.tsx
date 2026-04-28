@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { BookOpen, Users, Clock, Award, ChevronLeft, ChevronRight } from 'lucide-react'
+import { SITE_CONFIG } from "@/lib/constants"
 
 export default function LandingPage() {
   return (
@@ -19,7 +20,7 @@ export default function LandingPage() {
             <Link href="#como-funciona" className="text-gray-700 hover:text-red-600 transition-colors">
               Cómo Funciona
             </Link>
-            <Link href="#contacto" className="text-gray-700 hover:text-red-600 transition-colors">
+            <Link href={SITE_CONFIG.urls.contact} className="text-gray-700 hover:text-red-600 transition-colors">
               Contacto
             </Link>
           </nav>

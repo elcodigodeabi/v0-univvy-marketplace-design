@@ -1,9 +1,12 @@
 "use client"
 
+"use client"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { XCircle, ArrowLeft, HelpCircle } from "lucide-react"
+import { XCircle, ArrowLeft, Mail } from "lucide-react"
+import { SITE_CONFIG } from "@/lib/constants"
 
 export default function PagoCanceladoPage() {
   return (
@@ -47,10 +50,10 @@ export default function PagoCanceladoPage() {
                   </Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link href="/ayuda">
-                    <HelpCircle className="mr-2 h-4 w-4" />
+                  <a href={`mailto:${SITE_CONFIG.contact.email}`}>
+                    <Mail className="mr-2 h-4 w-4" />
                     Contactar Soporte
-                  </Link>
+                  </a>
                 </Button>
               </div>
             </CardContent>
