@@ -28,24 +28,8 @@ export function useAuth() {
         const { data: { user: authUser } } = await supabase.auth.getUser()
         
         if (authUser) {
-          // Try to get profile data from database (gracefully handle if table doesn't exist)
-          try {
-            const { data: profile, error } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", authUser.id)
-              .single()
-
-            if (profile && !error) {
-              setUser(mapProfileToUser(authUser, profile))
-            } else {
-              // Table doesn't exist or no profile found - use auth metadata
-              setUser(mapSupabaseUser(authUser))
-            }
-          } catch {
-            // Table doesn't exist - use auth metadata
-            setUser(mapSupabaseUser(authUser))
-          }
+          // Use auth metadata directly - profiles table may not exist yet
+          setUser(mapSupabaseUser(authUser))
         } else {
           setUser(null)
         }
@@ -61,23 +45,8 @@ export function useAuth() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        // Try to get profile data (gracefully handle if table doesn't exist)
-        try {
-          const { data: profile, error } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single()
-
-          if (profile && !error) {
-            setUser(mapProfileToUser(session.user, profile))
-          } else {
-            setUser(mapSupabaseUser(session.user))
-          }
-        } catch {
-          // Table doesn't exist - use auth metadata
-          setUser(mapSupabaseUser(session.user))
-        }
+        // Use auth metadata directly - profiles table may not exist yet
+        setUser(mapSupabaseUser(session.user))
       } else {
         setUser(null)
       }
@@ -96,27 +65,6 @@ export function useAuth() {
   }
 
   return { user, loading, signOut }
-}
-
-function mapProfileToUser(authUser: User, profile: any): AuthUser {
-  const nombre = profile.full_name || profile.nombre || authUser.email?.split("@")[0] || "Usuario"
-  
-  // Generate initials from name
-  const nameParts = nombre.split(" ")
-  const iniciales = nameParts.length >= 2
-    ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
-    : nombre.substring(0, 2).toUpperCase()
-
-  return {
-    id: authUser.id,
-    email: authUser.email || profile.email || "",
-    nombre,
-    tipo: profile.role || profile.tipo || "alumno",
-    universidad: profile.universidad || "",
-    carrera: profile.carrera || "",
-    iniciales,
-    avatar: profile.avatar_url,
-  }
 }
 
 function mapSupabaseUser(authUser: User): AuthUser {

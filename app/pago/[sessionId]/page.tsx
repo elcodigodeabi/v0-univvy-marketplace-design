@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { loadStripe } from "@stripe/stripe-js"
-import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js"
-import { createCheckoutSession } from "@/app/actions/stripe"
+import { createStripeCheckoutSession } from "@/app/actions/stripe"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -14,8 +12,6 @@ import { ArrowLeft, Calendar, Clock, MapPin, User, BookOpen, Shield, CreditCard,
 
 import { createClient } from "@/lib/supabase/client"
 import { useAuth } from "@/hooks/use-auth"
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 interface SessionData {
   id: string
@@ -35,7 +31,7 @@ export default function PagoPage() {
   const params = useParams()
   const router = useRouter()
   const { user } = useAuth()
-  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sessionData, setSessionData] = useState<SessionData | null>(null)
@@ -88,19 +84,18 @@ export default function PagoPage() {
         
         setSessionData(session)
 
-        const result = await createCheckoutSession({
-          sessionId: session.id,
-          tutorId: session.tutorId,
-          tutorName: session.tutorName,
-          subject: session.subject,
-          priceInCents: session.priceInCents,
-          duration: session.duration,
-          scheduledDate: session.scheduledDate,
-          scheduledTime: session.scheduledTime,
-          modality: session.modality,
+        const result = await createStripeCheckoutSession({
+          bookingId: session.id,
+          advisorId: session.tutorId,
+          advisorName: session.tutorName,
           studentEmail: session.studentEmail,
+          title: session.subject,
+          description: `Sesión de ${session.duration} minutos - ${formatDate(session.scheduledDate)} a las ${session.scheduledTime}`,
+          pricePerHour: Math.round((session.priceInCents / 100) / (session.duration / 60)),
+          durationMinutes: session.duration,
+          cancelUrl: `/agendar/${session.tutorId}`,
         })
-        setClientSecret(result.clientSecret)
+        setCheckoutUrl(result.checkoutUrl)
       } catch (err) {
         console.error("[v0] Error initializing checkout:", err)
         setError("Error al iniciar el proceso de pago. Por favor intenta de nuevo.")
@@ -140,9 +135,9 @@ export default function PagoPage() {
                 </Button>
                 <Link href="/" className="flex items-center gap-2">
                   <img
-                    src="/univvy-logo.jpg"
+                    src="/univvy-logo.png"
                     alt="Univvy"
-                    className="h-10 w-auto rounded-full border border-gray-100 shadow-sm"
+                    className="h-10 w-auto"
                   />
                 </Link>
               </div>
@@ -304,7 +299,7 @@ export default function PagoPage() {
                   <CardDescription>Ingresa los datos de tu tarjeta de forma segura</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {loading && (
+                  {!error && !checkoutUrl && (
                     <div className="flex flex-col items-center justify-center py-12">
                       <Loader2 className="h-8 w-8 animate-spin text-red-600 mb-4" />
                       <p className="text-gray-600">Cargando formulario de pago...</p>
@@ -324,10 +319,18 @@ export default function PagoPage() {
                     </div>
                   )}
 
-                  {clientSecret && (
-                    <EmbeddedCheckoutProvider stripe={stripePromise} options={{ clientSecret }}>
-                      <EmbeddedCheckout />
-                    </EmbeddedCheckoutProvider>
+                  {checkoutUrl && (
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-600">
+                        Serás redirigido a Stripe Checkout para completar el pago de forma segura.
+                      </p>
+                      <Button
+                        className="w-full bg-red-600 hover:bg-red-700 h-12"
+                        onClick={() => window.location.href = checkoutUrl}
+                      >
+                        Ir a Stripe Checkout
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>

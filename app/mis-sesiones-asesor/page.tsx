@@ -11,6 +11,9 @@ import { Calendar, Clock, Star, DollarSign, ArrowLeft, MessageSquare, CheckCircl
 import { UserMenu } from "@/components/user-menu"
 import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase/client"
+import { getOrCreateChatByBooking } from "@/app/actions/chat"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 interface Session {
   id: string
@@ -31,15 +34,28 @@ interface Session {
 
 export default function MisSesionesAsesorPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState("proximas")
   const [loading, setLoading] = useState(true)
   const [proximasSesiones, setProximasSesiones] = useState<Session[]>([])
   const [sesionesCompletadas, setSesionesCompletadas] = useState<Session[]>([])
+  const [openingChat, setOpeningChat] = useState<string | null>(null)
   const [stats, setStats] = useState({
     ganancias: 0,
     totalSesiones: 0,
     rating: 0,
   })
+
+  const handleOpenChat = async (bookingId: string) => {
+    setOpeningChat(bookingId)
+    const result = await getOrCreateChatByBooking(bookingId)
+    if (result.error) {
+      toast.error(result.error)
+    } else if (result.chatId) {
+      router.push(`/mensajes/${result.chatId}`)
+    }
+    setOpeningChat(null)
+  }
 
   useEffect(() => {
     async function fetchSessions() {
@@ -148,7 +164,7 @@ export default function MisSesionesAsesorPage() {
                   </Link>
                 </Button>
                 <div className="flex items-center gap-2">
-                  <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
+                  <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto" />
                 </div>
               </div>
               <UserMenu variant="asesor" />
@@ -179,7 +195,7 @@ export default function MisSesionesAsesorPage() {
                 </Link>
               </Button>
               <div className="flex items-center gap-2">
-                <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
+                <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto" />
               </div>
             </div>
             <UserMenu variant="asesor" />
@@ -323,10 +339,21 @@ export default function MisSesionesAsesorPage() {
                           <Button asChild className="flex-1 bg-red-600 hover:bg-red-700 text-white">
                             <Link href={`/sesion/${sesion.id}`}>Ver Detalles</Link>
                           </Button>
-                          <Button variant="outline" className="border-gray-300 bg-transparent">
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Contactar
-                          </Button>
+                          {sesion.estado === "confirmed" && (
+                            <Button
+                              variant="outline"
+                              className="border-gray-300 bg-transparent"
+                              onClick={() => handleOpenChat(sesion.id)}
+                              disabled={openingChat === sesion.id}
+                            >
+                              {openingChat === sesion.id ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                              )}
+                              Chat
+                            </Button>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
