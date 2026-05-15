@@ -15,8 +15,8 @@ export const metadata: Metadata = {
     "Conecta con asesores académicos verificados. Encuentra apoyo académico personalizado de estudiantes avanzados y profesores calificados de tu universidad.",
   generator: "v0.app",
   icons: {
-    icon: "/favicon.svg",
-    apple: "/favicon.svg",
+    icon: "/favicon.png",
+    apple: "/favicon.png",
   },
 }
 
