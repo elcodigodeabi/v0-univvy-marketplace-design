@@ -72,23 +72,23 @@ export default function MisSesionesAsesorPage() {
         const { data: upcoming } = await supabase
           .from("bookings")
           .select("*")
-          .eq("asesor_id", user.id)
+          .eq("advisor_id", user.id)
           .eq("status", "confirmed")
-          .gte("scheduled_date", today)
-          .order("scheduled_date", { ascending: true })
+          .gte("scheduled_at", today)
+          .order("scheduled_at", { ascending: true })
 
         if (upcoming) {
           setProximasSesiones(
             upcoming.map((s: any) => ({
               id: s.id,
               student_id: s.student_id,
-              student_nombre: s.student_nombre || "Estudiante",
+              student_nombre: s.student_name || "Estudiante",
               materia: s.subject || "Asesoría",
-              fecha: s.scheduled_date,
-              hora: s.scheduled_time,
-              tipo: s.modality || "Virtual",
-              duracion: s.duration || "1 hr",
-              precio: s.price || 0,
+              fecha: new Date(s.scheduled_at).toLocaleDateString("es-ES"),
+              hora: new Date(s.scheduled_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+              tipo: s.modalidad || "Virtual",
+              duracion: `${s.duration_minutes || 60} min`,
+              precio: (s.advisor_amount || 0) / 100,
               enlace: s.meeting_link,
               ubicacion: s.location,
               estado: s.status,
@@ -100,9 +100,9 @@ export default function MisSesionesAsesorPage() {
         const { data: completed } = await supabase
           .from("bookings")
           .select("*")
-          .eq("asesor_id", user.id)
+          .eq("advisor_id", user.id)
           .eq("status", "completed")
-          .order("scheduled_date", { ascending: false })
+          .order("scheduled_at", { ascending: false })
           .limit(10)
 
         if (completed) {
@@ -110,36 +110,27 @@ export default function MisSesionesAsesorPage() {
             completed.map((s: any) => ({
               id: s.id,
               student_id: s.student_id,
-              student_nombre: s.student_nombre || "Estudiante",
+              student_nombre: s.student_name || "Estudiante",
               materia: s.subject || "Asesoría",
-              fecha: s.scheduled_date,
-              hora: s.scheduled_time,
-              tipo: s.modality || "Virtual",
-              duracion: s.duration || "1 hr",
-              precio: s.price || 0,
-              calificacion: s.rating,
-              comentario: s.review,
+              fecha: new Date(s.scheduled_at).toLocaleDateString("es-ES"),
+              hora: new Date(s.scheduled_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+              tipo: s.modalidad || "Virtual",
+              duracion: `${s.duration_minutes || 60} min`,
+              precio: (s.advisor_amount || 0) / 100,
+              calificacion: s.student_rating,
+              comentario: s.student_review,
               estado: s.status,
             }))
           )
         }
 
-        // Get profile stats
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("rating, sesiones_completadas")
-          .eq("id", user.id)
-          .single()
-
-        if (profile) {
-          setStats({
-            ganancias:
-              (upcoming || []).reduce((sum: number, s: any) => sum + (s.price || 0), 0) +
-              (completed || []).reduce((sum: number, s: any) => sum + (s.price || 0), 0),
-            totalSesiones: (upcoming || []).length + (completed || []).length,
-            rating: profile.rating || 0,
-          })
-        }
+        setStats({
+          ganancias:
+            (upcoming || []).reduce((sum: number, s: any) => sum + ((s.advisor_amount || 0) / 100), 0) +
+            (completed || []).reduce((sum: number, s: any) => sum + ((s.advisor_amount || 0) / 100), 0),
+          totalSesiones: (upcoming || []).length + (completed || []).length,
+          rating: 0,
+        })
       } catch (err) {
         console.log("[v0] Error fetching sessions:", err)
       } finally {

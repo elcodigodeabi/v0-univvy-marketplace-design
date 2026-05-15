@@ -23,41 +23,25 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { UserMenu } from "@/components/user-menu"
-import { createClient } from "@/lib/supabase/client"
-
-interface Session {
-  id: string
-  student_id: string
-  student_nombre: string
-  materia: string
-  fecha: string
-  hora: string
-  tipo: string
-  precio: number
-  estado: string
-}
+import { getAdvisorStats, getAdvisorSessions, getAdvisorPendingRequests } from "@/app/actions/advisor"
 
 interface Stats {
   ganancias_mes: number
-  sesiones_mes: number
-  promedio_calificacion: number
+  totalCompletedSessions: number
   estudiantes_activos: number
   tasa_aceptacion: number
-  horas_mes: number
 }
 
 export default function DashboardAsesorPage() {
   const { user } = useAuth()
-  const [proximasSesiones, setProximasSesiones] = useState<Session[]>([])
-  const [solicitudesPendientes, setSolicitudesPendientes] = useState<Session[]>([])
+  const [proximasSesiones, setProximasSesiones] = useState<any[]>([])
+  const [solicitudesPendientes, setSolicitudesPendientes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [estadisticas, setEstadisticas] = useState<Stats>({
+  const [stats, setStats] = useState<Stats>({
     ganancias_mes: 0,
-    sesiones_mes: 0,
-    promedio_calificacion: 0,
+    totalCompletedSessions: 0,
     estudiantes_activos: 0,
     tasa_aceptacion: 0,
-    horas_mes: 0,
   })
 
   useEffect(() => {
@@ -67,76 +51,26 @@ export default function DashboardAsesorPage() {
         return
       }
 
-      const supabase = createClient()
-
       try {
-        // Try to fetch upcoming sessions
-        const { data: sessions } = await supabase
-          .from("bookings")
-          .select("*")
-          .eq("asesor_id", user.id)
-          .eq("status", "confirmed")
-          .gte("scheduled_date", new Date().toISOString().split("T")[0])
-          .order("scheduled_date", { ascending: true })
-          .limit(5)
-
-        if (sessions) {
-          setProximasSesiones(
-            sessions.map((s: any) => ({
-              id: s.id,
-              student_id: s.student_id,
-              student_nombre: s.student_nombre || "Estudiante",
-              materia: s.subject || "Asesoría",
-              fecha: s.scheduled_date,
-              hora: s.scheduled_time,
-              tipo: s.modality || "Virtual",
-              precio: s.price || 0,
-              estado: s.status,
-            }))
-          )
+        // Fetch stats
+        const statsResult = await getAdvisorStats(user.id)
+        if (statsResult.success) {
+          setStats(statsResult.data)
         }
 
-        // Try to fetch pending requests
-        const { data: pending } = await supabase
-          .from("bookings")
-          .select("*")
-          .eq("asesor_id", user.id)
-          .eq("status", "pending")
-          .order("created_at", { ascending: false })
-          .limit(5)
-
-        if (pending) {
-          setSolicitudesPendientes(
-            pending.map((s: any) => ({
-              id: s.id,
-              student_id: s.student_id,
-              student_nombre: s.student_nombre || "Estudiante",
-              materia: s.subject || "Asesoría",
-              fecha: s.scheduled_date,
-              hora: s.scheduled_time,
-              tipo: s.modality || "Virtual",
-              precio: s.price || 0,
-              estado: s.status,
-            }))
-          )
+        // Fetch upcoming sessions
+        const sessionsResult = await getAdvisorSessions(user.id, "confirmed")
+        if (sessionsResult.success) {
+          setProximasSesiones(sessionsResult.data.slice(0, 5))
         }
 
-        // Try to fetch stats from profile
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("rating, sesiones_completadas")
-          .eq("id", user.id)
-          .single()
-
-        if (profile) {
-          setEstadisticas((prev) => ({
-            ...prev,
-            promedio_calificacion: profile.rating || 0,
-            sesiones_mes: profile.sesiones_completadas || 0,
-          }))
+        // Fetch pending requests
+        const pendingResult = await getAdvisorPendingRequests(user.id)
+        if (pendingResult.success) {
+          setSolicitudesPendientes(pendingResult.data.slice(0, 5))
         }
       } catch (err) {
-        console.log("[v0] Error fetching asesor data:", err)
+        console.error("[v0] Error fetching asesor data:", err)
       } finally {
         setLoading(false)
       }
@@ -152,7 +86,7 @@ export default function DashboardAsesorPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto" />
+              <img src="/univvy-icon.png" alt="Univvy" className="h-14 w-auto object-contain" />
             </Link>
 
             <nav className="hidden md:flex items-center gap-6">
@@ -198,7 +132,7 @@ export default function DashboardAsesorPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Hola, {user?.nombre?.split(" ")[0] || "Asesor"}
+            Hola, {user?.full_name?.split(" ")[0] || "Asesor"}
           </h1>
           <p className="text-gray-600">Gestiona tus sesiones y monitorea tu progreso</p>
         </div>
@@ -213,7 +147,7 @@ export default function DashboardAsesorPage() {
                   <DollarSign className="h-5 w-5 text-green-600" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-gray-900">${estadisticas.ganancias_mes.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">€{stats.ganancias_mes.toFixed(2)}</p>
               <p className="text-xs text-gray-500 mt-1">Actualizado en tiempo real</p>
             </CardContent>
           </Card>
@@ -226,39 +160,21 @@ export default function DashboardAsesorPage() {
                   <Calendar className="h-5 w-5 text-blue-600" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{estadisticas.sesiones_mes}</p>
-              <p className="text-xs text-gray-500 mt-1">{estadisticas.horas_mes} horas totales</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalCompletedSessions}</p>
+              <p className="text-xs text-gray-500 mt-1">En total</p>
             </CardContent>
           </Card>
 
           <Card className="border-gray-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-gray-600">Calificación Promedio</p>
+                <p className="text-sm text-gray-600">Tasa de Aceptación</p>
                 <div className="h-10 w-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <Star className="h-5 w-5 text-yellow-600" />
+                  <TrendingUp className="h-5 w-5 text-yellow-600" />
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <p className="text-2xl font-bold text-gray-900">
-                  {estadisticas.promedio_calificacion > 0 ? estadisticas.promedio_calificacion.toFixed(1) : "-"}
-                </p>
-                {estadisticas.promedio_calificacion > 0 && (
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-4 w-4 ${
-                          i < Math.round(estadisticas.promedio_calificacion)
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "fill-gray-200 text-gray-200"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Basado en reseñas de estudiantes</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.tasa_aceptacion}%</p>
+              <p className="text-xs text-gray-500 mt-1">De solicitudes aceptadas</p>
             </CardContent>
           </Card>
 
@@ -270,7 +186,7 @@ export default function DashboardAsesorPage() {
                   <Users className="h-5 w-5 text-red-600" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{estadisticas.estudiantes_activos}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.estudiantes_activos}</p>
               <p className="text-xs text-gray-500 mt-1">Este mes</p>
             </CardContent>
           </Card>
@@ -307,26 +223,29 @@ export default function DashboardAsesorPage() {
                           <div className="flex items-center gap-4">
                             <Avatar className="h-12 w-12">
                               <AvatarFallback className="bg-red-100 text-red-600">
-                                {solicitud.student_nombre
+                                {solicitud.student_name
                                   .split(" ")
-                                  .map((n) => n[0])
+                                  .map((n: string) => n[0])
                                   .join("")}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <h4 className="font-semibold text-gray-900">{solicitud.student_nombre}</h4>
-                              <p className="text-sm text-gray-600">{solicitud.materia}</p>
+                              <h4 className="font-semibold text-gray-900">{solicitud.student_name}</h4>
+                              <p className="text-sm text-gray-600">{solicitud.subject || "Asesoría"}</p>
                               <div className="flex items-center gap-3 mt-1">
                                 <span className="text-xs text-gray-500 flex items-center gap-1">
                                   <Calendar className="h-3 w-3" />
-                                  {solicitud.fecha}
+                                  {new Date(solicitud.scheduled_at).toLocaleDateString("es-ES")}
                                 </span>
                                 <span className="text-xs text-gray-500 flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
-                                  {solicitud.hora}
+                                  {new Date(solicitud.scheduled_at).toLocaleTimeString("es-ES", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
                                 </span>
                                 <Badge variant="secondary" className="text-xs">
-                                  {solicitud.tipo}
+                                  {solicitud.modalidad}
                                 </Badge>
                               </div>
                             </div>
@@ -377,29 +296,33 @@ export default function DashboardAsesorPage() {
                           <div className="flex items-center gap-4">
                             <Avatar className="h-12 w-12">
                               <AvatarFallback className="bg-red-100 text-red-600">
-                                {sesion.student_nombre
+                                {sesion.student_name
                                   .split(" ")
-                                  .map((n) => n[0])
+                                  .map((n: string) => n[0])
                                   .join("")}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <h4 className="font-semibold text-gray-900">{sesion.student_nombre}</h4>
-                              <p className="text-sm text-gray-600">{sesion.materia}</p>
+                              <h4 className="font-semibold text-gray-900">{sesion.student_name}</h4>
+                              <p className="text-sm text-gray-600">{sesion.subject || "Asesoría"}</p>
                               <div className="flex items-center gap-3 mt-1">
                                 <span className="text-xs text-gray-500 flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
-                                  {sesion.fecha} • {sesion.hora}
+                                  {new Date(sesion.scheduled_at).toLocaleDateString("es-ES")} •{" "}
+                                  {new Date(sesion.scheduled_at).toLocaleTimeString("es-ES", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
                                 </span>
                                 <Badge variant="secondary" className="text-xs">
-                                  {sesion.tipo}
+                                  {sesion.modalidad}
                                 </Badge>
                               </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <p className="text-lg font-bold text-gray-900">${sesion.precio.toLocaleString()}</p>
+                              <p className="text-lg font-bold text-gray-900">€{(sesion.price / 100).toFixed(2)}</p>
                             </div>
                             <Button size="sm" variant="outline" className="border-gray-300 bg-transparent">
                               <MessageSquare className="h-4 w-4" />
@@ -421,92 +344,18 @@ export default function DashboardAsesorPage() {
 
             {/* Right Column - Sidebar */}
             <div className="space-y-6">
-              {/* Performance Card */}
-              <Card className="border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-gray-900">Tu Rendimiento</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-600">Tasa de Aceptación</span>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {estadisticas.tasa_aceptacion > 0 ? `${estadisticas.tasa_aceptacion}%` : "-"}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-green-600 h-2 rounded-full"
-                          style={{ width: `${estadisticas.tasa_aceptacion}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-600">Satisfacción</span>
-                        <span className="text-sm font-semibold text-gray-900">-</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-yellow-600 h-2 rounded-full" style={{ width: "0%" }}></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-600">Tiempo de Respuesta</span>
-                        <span className="text-sm font-semibold text-gray-900">-</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-blue-600 h-2 rounded-full" style={{ width: "0%" }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Quick Actions */}
               <Card className="border-gray-200 bg-red-50">
                 <CardContent className="p-6">
                   <h3 className="font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
                   <div className="space-y-2">
-                    <Button asChild variant="outline" className="w-full justify-start border-gray-300 bg-white">
-                      <Link href="/perfil">
-                        <User className="mr-2 h-4 w-4" />
-                        Editar Perfil
-                      </Link>
+                    <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white">
+                      <Link href="/calendario-asesor">Ver Calendario</Link>
                     </Button>
-                    <Button asChild variant="outline" className="w-full justify-start border-gray-300 bg-white">
-                      <Link href="/gestion-asesor">
-                        <Clock className="mr-2 h-4 w-4" />
-                        Gestionar Horarios
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full justify-start border-gray-300 bg-white">
-                      <Link href="/calendario-asesor">
-                        <Calendar className="mr-2 h-4 w-4" />
-                        Ver Calendario
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full justify-start border-gray-300 bg-white">
-                      <Link href="/configuracion-asesor">
-                        <TrendingUp className="mr-2 h-4 w-4" />
-                        Configuración
-                      </Link>
+                    <Button asChild variant="outline" className="w-full border-red-300 bg-transparent">
+                      <Link href="/gestion-asesor">Gestionar Perfil</Link>
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Tips Card */}
-              <Card className="border-gray-200 bg-blue-50">
-                <CardContent className="p-6">
-                  <h3 className="font-semibold text-gray-900 mb-2">Consejo</h3>
-                  <p className="text-sm text-gray-700 leading-relaxed">
-                    Completa tu perfil con una descripción detallada y tus especialidades para aumentar tu visibilidad
-                    en la plataforma.
-                  </p>
                 </CardContent>
               </Card>
             </div>
