@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Lock, CheckCircle, XCircle, Eye, EyeOff, Check, X } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
+import { SITE_CONFIG } from "@/lib/constants"
 
 function NuevaPasswordContent() {
   const [password, setPassword] = useState("")
@@ -233,9 +234,9 @@ function NuevaPasswordContent() {
 
             <div className="mt-6 text-center text-sm text-gray-600">
               ¿Necesitas ayuda?{" "}
-              <Link href="/" className="text-red-600 hover:text-red-700 font-medium">
+              <a href={`mailto:${SITE_CONFIG.contact.email}`} className="text-red-600 hover:text-red-700 font-medium">
                 Contacta soporte
-              </Link>
+              </a>
             </div>
           </CardContent>
         </Card>

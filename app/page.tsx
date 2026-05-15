@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { BookOpen, Users, Clock, Award, ChevronLeft, ChevronRight } from 'lucide-react'
+import { SITE_CONFIG } from "@/lib/constants"
 
 export default function LandingPage() {
   return (
@@ -10,7 +11,7 @@ export default function LandingPage() {
       <header className="border-b border-gray-200">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
+            <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto" />
           </Link>
           <nav className="hidden md:flex items-center gap-8">
             <Link href="#servicios" className="text-gray-700 hover:text-red-600 transition-colors">
@@ -19,7 +20,7 @@ export default function LandingPage() {
             <Link href="#como-funciona" className="text-gray-700 hover:text-red-600 transition-colors">
               Cómo Funciona
             </Link>
-            <Link href="#contacto" className="text-gray-700 hover:text-red-600 transition-colors">
+            <Link href={SITE_CONFIG.urls.contact} className="text-gray-700 hover:text-red-600 transition-colors">
               Contacto
             </Link>
           </nav>
@@ -48,7 +49,7 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button asChild size="lg" className="bg-red-600 hover:bg-red-700 text-white text-lg px-8">
-                  <Link href="/registro?tipo=alumno">Buscar Asesor</Link>
+                  <Link href="/buscar">Buscar Asesor</Link>
                 </Button>
                 <Button
                   asChild
@@ -287,7 +288,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <Link href="/" className="flex items-center gap-2 mb-4">
-                <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full bg-white p-1 shadow-sm" />
+                <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto brightness-0 invert" />
               </Link>
               <p className="text-gray-400 text-sm">Conectando estudiantes con asesores académicos de calidad.</p>
             </div>
@@ -296,7 +297,7 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm text-gray-400">
                 <li>
                   <Link href="/buscar" className="hover:text-white transition-colors">
-                    Buscar Asesores
+                    Buscar
                   </Link>
                 </li>
                 <li>

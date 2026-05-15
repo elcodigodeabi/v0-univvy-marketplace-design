@@ -38,7 +38,7 @@ export default function AsesoresPage() {
               <span>Volver al Dashboard</span>
             </Link>
             <Link href="/dashboard" className="flex items-center gap-2">
-              <img src="/univvy-logo.jpg" alt="Univvy" className="h-10 w-auto rounded-full border border-gray-100 shadow-sm" />
+              <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto" />
             </Link>
           </div>
         </div>
