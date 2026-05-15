@@ -336,9 +336,9 @@ export default function BuscarPage() {
 
             <Link href="/dashboard" className="hidden md:flex items-center gap-2">
               <img 
-                src="/univvy-icon.svg" 
+                src="/univvy-icon.png" 
                 alt="Univvy" 
-                className="h-16 w-auto" 
+                className="h-14 w-auto object-contain" 
               />
             </Link>
           </div>

@@ -152,7 +152,7 @@ export default function DashboardAsesorPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <img src="/univvy-icon.svg" alt="Univvy" className="h-16 w-auto" />
+              <img src="/univvy-icon.png" alt="Univvy" className="h-14 w-auto object-contain" />
             </Link>
 
             <nav className="hidden md:flex items-center gap-6">
