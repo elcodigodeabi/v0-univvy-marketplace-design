@@ -224,7 +224,7 @@ export default function CalendarioAsesorPage() {
                 </Link>
               </Button>
               <Link href="/" className="flex items-center gap-2">
-                <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto" />
+                <img src="/univvy-icon.svg" alt="Univvy" className="h-16 w-auto" />
               </Link>
             </div>
             <UserMenu variant="asesor" />

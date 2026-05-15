@@ -1,0 +1,22 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mortarboard cap - red -->
+  <path d="M30 60L100 20L170 60" stroke="#FF3E3E" stroke-width="18" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Top brim - left -->
+  <path d="M30 60L65 85" stroke="#FF3E3E" stroke-width="18" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Top brim - right -->
+  <path d="M170 60L135 85" stroke="#FF3E3E" stroke-width="18" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Middle band -->
+  <path d="M65 85L135 85" stroke="#FF3E3E" stroke-width="18" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Left side tube -->
+  <path d="M75 85L75 160" stroke="#FF3E3E" stroke-width="16" fill="none" stroke-linecap="round"/>
+  
+  <!-- Right side tube -->
+  <path d="M125 85L125 160" stroke="#FF3E3E" stroke-width="16" fill="none" stroke-linecap="round"/>
+  
+  <!-- Bottom tassel -->
+  <circle cx="100" cy="175" r="8" fill="#FF3E3E"/>
+</svg>

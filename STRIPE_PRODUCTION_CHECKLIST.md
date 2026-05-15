@@ -44,11 +44,11 @@
 9. 24h después: `auto_release_at` trigger (requiere cron job futuro)
 
 ### Testing recomendado:
-```
+\`\`\`
 Tarjeta test: 4242 4242 4242 4242
 Fecha: Cualquier futura (ej: 12/26)
 CVC: Cualquiera (ej: 123)
-```
+\`\`\`
 
 ### Próximos pasos opcionales:
 - [ ] Cron job para auto-release de escrow cada 24h
