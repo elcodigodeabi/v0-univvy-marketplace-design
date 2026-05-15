@@ -51,8 +51,8 @@ export default function SolicitudesAsesorPage() {
         const { data: pending } = await supabase
           .from("bookings")
           .select("*")
-          .eq("asesor_id", user.id)
-          .eq("status", "pending")
+          .eq("advisor_id", user.id)
+          .eq("status", "pending_payment")
           .order("created_at", { ascending: false })
 
         if (pending) {
@@ -60,16 +60,16 @@ export default function SolicitudesAsesorPage() {
             pending.map((s: any) => ({
               id: s.id,
               student_id: s.student_id,
-              student_nombre: s.student_nombre || "Estudiante",
-              universidad: s.student_university || "Universidad",
-              carrera: s.student_career || "Carrera",
+              student_nombre: s.student_name || "Estudiante",
+              universidad: "Universidad",
+              carrera: "Carrera",
               materia: s.subject || "Asesoría",
-              fecha: s.scheduled_date,
-              hora: s.scheduled_time,
-              tipo: s.modality || "Virtual",
-              duracion: s.duration || "1 hora",
-              precio: s.price || 0,
-              mensaje: s.student_message || "",
+              fecha: new Date(s.scheduled_at).toLocaleDateString("es-ES"),
+              hora: new Date(s.scheduled_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+              tipo: s.modalidad || "Virtual",
+              duracion: `${s.duration_minutes || 60} min`,
+              precio: (s.price || 0) / 100,
+              mensaje: s.notes || "",
               estado: s.status,
             }))
           )
@@ -79,9 +79,9 @@ export default function SolicitudesAsesorPage() {
         const { data: accepted } = await supabase
           .from("bookings")
           .select("*")
-          .eq("asesor_id", user.id)
+          .eq("advisor_id", user.id)
           .eq("status", "confirmed")
-          .order("scheduled_date", { ascending: true })
+          .order("scheduled_at", { ascending: true })
           .limit(10)
 
         if (accepted) {
@@ -89,16 +89,16 @@ export default function SolicitudesAsesorPage() {
             accepted.map((s: any) => ({
               id: s.id,
               student_id: s.student_id,
-              student_nombre: s.student_nombre || "Estudiante",
-              universidad: s.student_university || "Universidad",
-              carrera: s.student_career || "Carrera",
+              student_nombre: s.student_name || "Estudiante",
+              universidad: "Universidad",
+              carrera: "Carrera",
               materia: s.subject || "Asesoría",
-              fecha: s.scheduled_date,
-              hora: s.scheduled_time,
-              tipo: s.modality || "Virtual",
-              duracion: s.duration || "1 hora",
-              precio: s.price || 0,
-              mensaje: s.student_message || "",
+              fecha: new Date(s.scheduled_at).toLocaleDateString("es-ES"),
+              hora: new Date(s.scheduled_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+              tipo: s.modalidad || "Virtual",
+              duracion: `${s.duration_minutes || 60} min`,
+              precio: (s.price || 0) / 100,
+              mensaje: s.notes || "",
               estado: s.status,
             }))
           )
@@ -108,7 +108,7 @@ export default function SolicitudesAsesorPage() {
         const { data: rejected } = await supabase
           .from("bookings")
           .select("*")
-          .eq("asesor_id", user.id)
+          .eq("advisor_id", user.id)
           .eq("status", "rejected")
           .order("updated_at", { ascending: false })
           .limit(10)
@@ -118,16 +118,16 @@ export default function SolicitudesAsesorPage() {
             rejected.map((s: any) => ({
               id: s.id,
               student_id: s.student_id,
-              student_nombre: s.student_nombre || "Estudiante",
-              universidad: s.student_university || "Universidad",
-              carrera: s.student_career || "Carrera",
+              student_nombre: s.student_name || "Estudiante",
+              universidad: "Universidad",
+              carrera: "Carrera",
               materia: s.subject || "Asesoría",
-              fecha: s.scheduled_date,
-              hora: s.scheduled_time,
-              tipo: s.modality || "Virtual",
-              duracion: s.duration || "1 hora",
-              precio: s.price || 0,
-              mensaje: s.student_message || "",
+              fecha: new Date(s.scheduled_at).toLocaleDateString("es-ES"),
+              hora: new Date(s.scheduled_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+              tipo: s.modalidad || "Virtual",
+              duracion: `${s.duration_minutes || 60} min`,
+              precio: (s.price || 0) / 100,
+              mensaje: s.notes || "",
               estado: s.status,
               motivo_rechazo: s.rejection_reason,
             }))
