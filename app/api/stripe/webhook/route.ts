@@ -3,9 +3,6 @@ import { stripe } from "@/lib/stripe"
 import { createServiceClient } from "@/lib/supabase/service"
 import Stripe from "stripe"
 
-// Stripe requires the raw body for signature verification
-export const config = { api: { bodyParser: false } }
-
 export async function POST(req: NextRequest) {
   const body = await req.text()
   const sig = req.headers.get("stripe-signature")
