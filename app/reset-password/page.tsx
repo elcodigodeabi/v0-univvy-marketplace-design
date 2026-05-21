@@ -157,7 +157,7 @@ export default function ResetPasswordPage() {
                 <Link href="/login" className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50">
                   Volver a iniciar sesión
                 </Link>
-                <Link href="/registro" className="inline-flex items-center justify-center rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700">
+                <Link href="/recuperar-password" className="inline-flex items-center justify-center rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700">
                   Solicitar nuevo enlace
                 </Link>
               </div>
