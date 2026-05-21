@@ -14,6 +14,7 @@ function parseSupabaseParams() {
   return {
     accessToken: hashParams.get("access_token") || queryParams.get("access_token"),
     refreshToken: hashParams.get("refresh_token") || queryParams.get("refresh_token") || "",
+    code: queryParams.get("code") || hashParams.get("code"),
     type: hashParams.get("type") || queryParams.get("type") || "",
   }
 }
@@ -25,29 +26,44 @@ export default function AuthResetPage() {
   useEffect(() => {
     const processToken = async () => {
       try {
-        const { accessToken, refreshToken, type } = parseSupabaseParams()
-
-        if (!accessToken || type !== "signup") {
-          setStatus("error")
-          setMessage("✗ No se pudo verificar el correo. El link puede haber expirado o ser inválido.")
-          return
-        }
-
+        const { accessToken, refreshToken, code, type } = parseSupabaseParams()
         const supabase = createClient()
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        })
 
-        if (sessionError) {
-          console.error("[auth/reset] setSession error:", sessionError.message)
-          setStatus("error")
-          setMessage("✗ No se pudo verificar el correo. El link puede haber expirado o ser inválido.")
+        if (accessToken && type === "signup") {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+
+          if (sessionError) {
+            console.error("[auth/reset] setSession error:", sessionError.message)
+            setStatus("error")
+            setMessage("✗ No se pudo verificar el correo. El link puede haber expirado o ser inválido.")
+            return
+          }
+
+          setStatus("success")
+          setMessage("✓ Tu correo ha sido verificado con éxito. Ya puedes usar tu cuenta de univvy. Por favor, inicia sesión para continuar.")
           return
         }
 
-        setStatus("success")
-        setMessage("✓ Tu correo ha sido verificado con éxito. Ya puedes usar tu cuenta de univvy. Por favor, inicia sesión para continuar.")
+        if (code) {
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+          if (exchangeError || !data?.user) {
+            console.error("[auth/reset] exchangeCodeForSession error:", exchangeError?.message, data)
+            setStatus("error")
+            setMessage("✗ No se pudo verificar el correo. El link puede haber expirado o ser inválido.")
+            return
+          }
+
+          setStatus("success")
+          setMessage("✓ Tu correo ha sido verificado con éxito. Ya puedes usar tu cuenta de univvy. Por favor, inicia sesión para continuar.")
+          return
+        }
+
+        setStatus("error")
+        setMessage("✗ No se pudo verificar el correo. El link puede haber expirado o ser inválido.")
       } catch (err) {
         console.error("[auth/reset] error:", err)
         setStatus("error")

@@ -14,6 +14,7 @@ function parseSupabaseParams() {
   return {
     accessToken: hashParams.get("access_token") || queryParams.get("access_token"),
     refreshToken: hashParams.get("refresh_token") || queryParams.get("refresh_token") || "",
+    code: queryParams.get("code") || hashParams.get("code"),
     type: hashParams.get("type") || queryParams.get("type") || "",
   }
 }
@@ -28,28 +29,42 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const processToken = async () => {
       try {
-        const { accessToken, refreshToken, type } = parseSupabaseParams()
-
-        if (!accessToken || type !== "recovery") {
-          setStatus("error")
-          setMessage("✗ Algo salió mal. El link puede haber expirado. Intenta de nuevo desde la página de login.")
-          return
-        }
-
+        const { accessToken, refreshToken, code, type } = parseSupabaseParams()
         const supabase = createClient()
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        })
 
-        if (sessionError) {
-          console.error("[reset-password] setSession error:", sessionError.message)
-          setStatus("error")
-          setMessage("✗ Algo salió mal. El link puede haber expirado. Intenta de nuevo desde la página de login.")
+        if (accessToken && type === "recovery") {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+
+          if (sessionError) {
+            console.error("[reset-password] setSession error:", sessionError.message)
+            setStatus("error")
+            setMessage("✗ Algo salió mal. El link puede haber expirado. Intenta de nuevo desde la página de login.")
+            return
+          }
+
+          setStatus("ready")
           return
         }
 
-        setStatus("ready")
+        if (code) {
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+          if (exchangeError || !data?.user) {
+            console.error("[reset-password] exchangeCodeForSession error:", exchangeError?.message, data)
+            setStatus("error")
+            setMessage("✗ Algo salió mal. El link puede haber expirado. Intenta de nuevo desde la página de login.")
+            return
+          }
+
+          setStatus("ready")
+          return
+        }
+
+        setStatus("error")
+        setMessage("✗ Algo salió mal. El link puede haber expirado. Intenta de nuevo desde la página de login.")
       } catch (err) {
         console.error("[reset-password] error:", err)
         setStatus("error")
