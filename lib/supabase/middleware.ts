@@ -19,7 +19,7 @@ const protectedRoutes = [
 ]
 
 // Routes that should redirect to dashboard if already authenticated
-const authRoutes = ['/login', '/registro']
+const authRoutes = ['/registro']
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
