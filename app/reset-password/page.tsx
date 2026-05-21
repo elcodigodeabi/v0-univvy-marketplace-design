@@ -29,8 +29,16 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const processToken = async () => {
       try {
-        const { accessToken, refreshToken, code, type } = parseSupabaseParams()
         const supabase = createClient()
+        const auth = supabase.auth as any
+        const sessionResult = auth.getSessionFromUrl ? await auth.getSessionFromUrl({ storeSession: true }) : null
+
+        if (sessionResult?.data?.session) {
+          setStatus("ready")
+          return
+        }
+
+        const { accessToken, refreshToken, code, type } = parseSupabaseParams()
 
         if (accessToken && type === "recovery") {
           const { error: sessionError } = await supabase.auth.setSession({

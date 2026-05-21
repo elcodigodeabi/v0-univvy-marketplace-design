@@ -26,8 +26,17 @@ export default function AuthResetPage() {
   useEffect(() => {
     const processToken = async () => {
       try {
-        const { accessToken, refreshToken, code, type } = parseSupabaseParams()
         const supabase = createClient()
+        const auth = supabase.auth as any
+        const sessionResult = auth.getSessionFromUrl ? await auth.getSessionFromUrl({ storeSession: true }) : null
+
+        if (sessionResult?.data?.session) {
+          setStatus("success")
+          setMessage("✓ Tu correo ha sido verificado con éxito. Ya puedes usar tu cuenta de univvy. Por favor, inicia sesión para continuar.")
+          return
+        }
+
+        const { accessToken, refreshToken, code, type } = parseSupabaseParams()
 
         if (accessToken && type === "signup") {
           const { error: sessionError } = await supabase.auth.setSession({
