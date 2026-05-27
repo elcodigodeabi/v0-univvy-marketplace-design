@@ -3,6 +3,16 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 
+export interface AvailabilitySlot {
+  start: string
+  end: string
+}
+
+export interface DayAvailability {
+  enabled: boolean
+  slots: AvailabilitySlot[]
+}
+
 export interface Asesor {
   id: string
   nombre: string
@@ -14,7 +24,7 @@ export interface Asesor {
   sesiones_completadas: number
   precio_por_hora: number
   modalidad: string[]
-  disponibilidad: string
+  disponibilidad: Record<string, DayAvailability> | null
   descripcion: string
   avatar_url: string | null
   created_at: string
@@ -54,8 +64,8 @@ export function useAsesores() {
             sesiones_completadas: profile.sesiones_completadas || 0,
             precio_por_hora: profile.precio_por_hora || 0,
             modalidad: profile.modalidad || [],
-            disponibilidad: profile.disponibilidad || "",
-            descripcion: profile.descripcion || "",
+            disponibilidad: profile.disponibilidad || null,
+            descripcion: profile.bio || profile.descripcion || "",
             avatar_url: profile.avatar_url,
             created_at: profile.created_at,
           }))
@@ -114,8 +124,8 @@ export function useAsesor(id: string) {
             sesiones_completadas: data.sesiones_completadas || 0,
             precio_por_hora: data.precio_por_hora || 0,
             modalidad: data.modalidad || [],
-            disponibilidad: data.disponibilidad || "",
-            descripcion: data.descripcion || "",
+            disponibilidad: data.disponibilidad || null,
+            descripcion: data.bio || data.descripcion || "",
             avatar_url: data.avatar_url,
             created_at: data.created_at,
           })

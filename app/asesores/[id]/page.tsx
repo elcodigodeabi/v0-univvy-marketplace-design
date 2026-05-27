@@ -21,7 +21,20 @@ import {
   Loader2,
   UserX,
 } from "lucide-react"
-import { useAsesor } from "@/hooks/use-asesores"
+import { useAsesor, type DayAvailability } from "@/hooks/use-asesores"
+
+const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+function formatAvailabilityText(disponibilidad: Record<string, DayAvailability> | null): string {
+  if (!disponibilidad) return "Consultar disponibilidad"
+  
+  const enabledDays = diasSemana.filter(day => disponibilidad[day]?.enabled)
+  if (enabledDays.length === 0) return "Sin disponibilidad"
+  if (enabledDays.length === 7) return "Todos los días"
+  if (enabledDays.length >= 5) return "Lunes a Viernes"
+  
+  return enabledDays.slice(0, 3).join(", ") + (enabledDays.length > 3 ? "..." : "")
+}
 
 export default function AsesorProfilePage() {
   const params = useParams<{ id: string }>()
@@ -142,7 +155,7 @@ export default function AsesorProfilePage() {
                       </div>
                       <div className="flex items-center gap-2 text-gray-600">
                         <Clock className="h-4 w-4 text-gray-400" />
-                        <span>{asesor.disponibilidad || "Disponibilidad flexible"}</span>
+                        <span>{formatAvailabilityText(asesor.disponibilidad)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-600">
                         <BookOpen className="h-4 w-4 text-gray-400" />
@@ -166,6 +179,63 @@ export default function AsesorProfilePage() {
                 <p className="text-gray-700 leading-relaxed">
                   {asesor.descripcion || "Este asesor aún no ha agregado una descripción."}
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* Availability Section */}
+            <Card className="border-gray-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-gray-900">
+                  <Calendar className="h-5 w-5 text-red-600" />
+                  Disponibilidad Semanal
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {asesor.disponibilidad ? (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {diasSemana.map((day) => {
+                      const dayData = asesor.disponibilidad?.[day]
+                      const isEnabled = dayData?.enabled
+                      const slots = dayData?.slots || []
+                      
+                      return (
+                        <div
+                          key={day}
+                          className={`p-3 rounded-lg border ${
+                            isEnabled
+                              ? "border-green-200 bg-green-50"
+                              : "border-gray-200 bg-gray-50"
+                          }`}
+                        >
+                          <p className={`font-medium text-sm mb-1 ${
+                            isEnabled ? "text-green-800" : "text-gray-500"
+                          }`}>
+                            {day}
+                          </p>
+                          {isEnabled && slots.length > 0 ? (
+                            <div className="space-y-1">
+                              {slots.map((slot, idx) => (
+                                <p key={idx} className="text-xs text-green-700">
+                                  {slot.start} - {slot.end}
+                                </p>
+                              ))}
+                            </div>
+                          ) : isEnabled ? (
+                            <p className="text-xs text-green-600">Disponible</p>
+                          ) : (
+                            <p className="text-xs text-gray-400">No disponible</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Calendar className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">Este asesor aún no ha configurado su disponibilidad.</p>
+                    <p className="text-sm text-gray-400 mt-1">Contacta al asesor para consultar horarios.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
