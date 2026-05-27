@@ -132,7 +132,7 @@ export default function DashboardAsesorPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Hola, {user?.full_name?.split(" ")[0] || "Asesor"}
+            Hola, {user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Asesor"}
           </h1>
           <p className="text-gray-600">Gestiona tus sesiones y monitorea tu progreso</p>
         </div>
