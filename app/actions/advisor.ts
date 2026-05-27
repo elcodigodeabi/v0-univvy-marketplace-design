@@ -187,6 +187,14 @@ export async function updateAdvisorAvailability(
 
     if (error) {
       console.error("[v0] Supabase update error:", error.message, error.code, error.details)
+      
+      // Check if it's a missing column error
+      if (error.message.includes("disponibilidad") || error.message.includes("column") || error.code === "42703") {
+        return {
+          success: false,
+          error: "La base de datos necesita actualizarse. Por favor, ejecuta el script de migración en Supabase: scripts/009_add_advisor_columns.sql",
+        }
+      }
       throw error
     }
 
