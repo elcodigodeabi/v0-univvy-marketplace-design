@@ -162,7 +162,10 @@ export async function updateAdvisorAvailability(
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
+  console.log("[v0] updateAdvisorAvailability called with:", { advisorId, userId: user?.id })
+
   if (authError || !user || user.id !== advisorId) {
+    console.log("[v0] Auth error or user mismatch:", { authError: authError?.message, userId: user?.id, advisorId })
     return {
       success: false,
       error: "No autorizado",
@@ -170,27 +173,35 @@ export async function updateAdvisorAvailability(
   }
 
   try {
-    const { error } = await supabase
+    console.log("[v0] Attempting to update disponibilidad for:", advisorId)
+    console.log("[v0] Availability data:", JSON.stringify(availability))
+    
+    const { data, error } = await supabase
       .from("profiles")
       .update({
         disponibilidad: availability,
         updated_at: new Date().toISOString(),
       })
       .eq("id", advisorId)
+      .select()
 
-    if (error) throw error
+    if (error) {
+      console.error("[v0] Supabase update error:", error.message, error.code, error.details)
+      throw error
+    }
 
+    console.log("[v0] Update successful:", data)
     revalidatePath("/calendario-asesor")
     revalidatePath("/gestion-asesor")
     return {
       success: true,
       message: "Disponibilidad actualizada",
     }
-  } catch (error) {
-    console.error("[v0] updateAdvisorAvailability error:", error)
+  } catch (error: any) {
+    console.error("[v0] updateAdvisorAvailability error:", error?.message || error)
     return {
       success: false,
-      error: "Error al actualizar disponibilidad",
+      error: error?.message || "Error al actualizar disponibilidad",
     }
   }
 }
