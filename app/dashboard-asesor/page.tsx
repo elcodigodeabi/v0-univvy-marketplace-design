@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { UserMenu } from "@/components/user-menu"
+import { createClient } from "@/lib/supabase/client"
 import { getAdvisorStats, getAdvisorSessions, getAdvisorPendingRequests } from "@/app/actions/advisor"
 
 interface Stats {
@@ -32,11 +33,16 @@ interface Stats {
   tasa_aceptacion: number
 }
 
+interface UserProfile {
+  full_name: string
+}
+
 export default function DashboardAsesorPage() {
   const { user } = useAuth()
   const [proximasSesiones, setProximasSesiones] = useState<any[]>([])
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [stats, setStats] = useState<Stats>({
     ganancias_mes: 0,
     totalCompletedSessions: 0,
@@ -52,6 +58,18 @@ export default function DashboardAsesorPage() {
       }
 
       try {
+        // Fetch user profile from database
+        const supabase = createClient()
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .single()
+        
+        if (profile) {
+          setUserProfile(profile)
+        }
+
         // Fetch stats
         const statsResult = await getAdvisorStats(user.id)
         if (statsResult.success) {
@@ -132,7 +150,7 @@ export default function DashboardAsesorPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Hola, {user?.full_name?.split(" ")[0] || "Asesor"}
+            Hola, {userProfile?.full_name || user?.user_metadata?.full_name || "Asesor"}
           </h1>
           <p className="text-gray-600">Gestiona tus sesiones y monitorea tu progreso</p>
         </div>

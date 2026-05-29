@@ -3,10 +3,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { BookOpen, Users, Clock, Award, ChevronLeft, ChevronRight } from 'lucide-react'
 import { SITE_CONFIG } from "@/lib/constants"
+import { RedirectHandler } from "@/components/redirect-handler"
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <>
+      <RedirectHandler />
+      <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-gray-200">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -354,5 +357,6 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
+    </>
   )
 }

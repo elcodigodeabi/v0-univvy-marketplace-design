@@ -13,20 +13,20 @@ Los códigos de confirmación de email y recuperación de contraseña **no funci
 ### Paso 2: Copia las URLs Que Debes Agregar
 
 #### Para DESARROLLO (localhost):
-```
+\`\`\`
 http://localhost:3000
 http://localhost:3000/
-```
+\`\`\`
 
 #### Para PRODUCCIÓN (Vercel):
 Reemplaza `TU_URL_VERCEL` con tu URL real de Vercel. Puede ser:
 - `https://v0-univvy-marketplace-design.vercel.app` (URL default de Vercel)
 - O tu dominio personalizado (ej: `https://univvy.com`)
 
-```
+\`\`\`
 https://TU_URL_VERCEL
 https://TU_URL_VERCEL/
-```
+\`\`\`
 
 ### Paso 3: Agregar las URLs en Supabase
 
@@ -35,15 +35,15 @@ En la sección **"Redirect URLs"** (o "Site URLs"):
 1. Haz clic en el campo de entrada de URLs
 2. Pega cada URL en una línea nueva:
 
-```
+\`\`\`
 http://localhost:3000
 https://v0-univvy-marketplace-design.vercel.app
-```
+\`\`\`
 
 Si tienes un dominio personalizado, agrega también:
-```
+\`\`\`
 https://tudominio.com
-```
+\`\`\`
 
 3. Haz clic en **Save** o **Update**
 
@@ -71,11 +71,11 @@ Ejemplos completos:
 
 Tu proyecto ya tiene estas variables configuradas correctamente:
 
-```
+\`\`\`
 NEXT_PUBLIC_SUPABASE_URL=tu_url_supabase
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
 SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
-```
+\`\`\`
 
 ✅ Estas están bien. **No necesitas cambiarlas.**
 

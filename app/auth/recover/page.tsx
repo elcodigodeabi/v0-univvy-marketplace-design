@@ -15,13 +15,66 @@ export default function RecoveryPage() {
       try {
         const supabase = createClient()
         
-        // Get the session from URL fragment
+        // First check if there's already a session (user clicked link and Supabase auto-handled it)
+        const { data: { session }, error: sessionCheckError } = await supabase.auth.getSession()
+        
+        console.log("[v0] Recovery page - checking session:", { session: !!session, error: sessionCheckError?.message })
+        
+        if (session) {
+          // Already have a valid session, redirect to password change
+          console.log("[v0] Session already exists, redirecting to nueva-password")
+          router.push("/nueva-password")
+          return
+        }
+
+        // Get the tokens from URL fragment (hash)
         const hash = window.location.hash.substring(1)
         const params = new URLSearchParams(hash)
         const accessToken = params.get("access_token")
+        const refreshToken = params.get("refresh_token")
         const type = params.get("type")
 
-        if (!accessToken || type !== "recovery") {
+        console.log("[v0] Recovery tokens:", { 
+          hasAccessToken: !!accessToken, 
+          hasRefreshToken: !!refreshToken,
+          type,
+          hashLength: hash.length
+        })
+
+        // Also check query params (some Supabase versions use query instead of hash)
+        const urlParams = new URLSearchParams(window.location.search)
+        const codeFromQuery = urlParams.get("code")
+        
+        if (codeFromQuery) {
+          console.log("[v0] Found code in query params, exchanging...")
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(codeFromQuery)
+          
+          if (exchangeError) {
+            console.error("[v0] Code exchange error:", exchangeError)
+            setError("El enlace de recuperación es inválido o ha expirado")
+            setIsProcessing(false)
+            return
+          }
+          
+          router.push("/nueva-password")
+          return
+        }
+
+        if (!accessToken) {
+          // No tokens found, check if Supabase will handle it via onAuthStateChange
+          console.log("[v0] No access token in hash, waiting for auth state...")
+          
+          // Wait a bit for Supabase to process the URL automatically
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
+          const { data: { session: delayedSession } } = await supabase.auth.getSession()
+          
+          if (delayedSession) {
+            console.log("[v0] Session found after delay, redirecting")
+            router.push("/nueva-password")
+            return
+          }
+          
           setError("El enlace de recuperación es inválido o ha expirado")
           setIsProcessing(false)
           return
@@ -30,17 +83,18 @@ export default function RecoveryPage() {
         // Set the session with the recovery token
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
-          refresh_token: params.get("refresh_token") || "",
+          refresh_token: refreshToken || "",
         })
 
         if (sessionError) {
+          console.error("[v0] Session error:", sessionError)
           setError("No pudimos verificar tu enlace. Por favor intenta de nuevo.")
           setIsProcessing(false)
           return
         }
 
         // Redirect to password change page
-        setIsProcessing(false)
+        console.log("[v0] Session set successfully, redirecting to nueva-password")
         router.push("/nueva-password")
       } catch (err) {
         console.error("[v0] Recovery error:", err)

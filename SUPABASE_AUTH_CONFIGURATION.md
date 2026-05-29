@@ -18,14 +18,14 @@ Los códigos de confirmación de email y recuperación de contraseña fallan en 
    - Para producción: `https://tu-dominio-vercel.app` (tu URL real de Vercel)
 
 3. En la sección **Redirect URLs**, agrega estas URLs:
-   ```
+   \`\`\`
    http://localhost:3000/auth/callback
    http://localhost:3000/auth/verify
    http://localhost:3000/auth/recover
    https://tu-dominio-vercel.app/auth/callback
    https://tu-dominio-vercel.app/auth/verify
    https://tu-dominio-vercel.app/auth/recover
-   ```
+   \`\`\`
 
 ### Paso 3: Habilitar Confirmación de Email (Opcional pero recomendado)
 1. En **Authentication**, ve a **Providers**

@@ -7,10 +7,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft, MessageSquare, MapPin, Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft, MessageSquare, MapPin, Loader2, Video } from "lucide-react"
 import { UserMenu } from "@/components/user-menu"
 import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase/client"
+import { acceptBookingRequest, rejectBookingRequest } from "@/app/actions/advisor"
+import { toast } from "sonner"
 
 interface Request {
   id: string
@@ -33,9 +38,15 @@ export default function SolicitudesAsesorPage() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState("pendientes")
   const [loading, setLoading] = useState(true)
+  const [processingId, setProcessingId] = useState<string | null>(null)
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<Request[]>([])
   const [solicitudesAceptadas, setSolicitudesAceptadas] = useState<Request[]>([])
   const [solicitudesRechazadas, setSolicitudesRechazadas] = useState<Request[]>([])
+  
+  // Dialog state for rejection
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
+  const [rejectReason, setRejectReason] = useState("")
 
   useEffect(() => {
     async function fetchRequests() {
@@ -142,6 +153,58 @@ export default function SolicitudesAsesorPage() {
 
     fetchRequests()
   }, [user?.id])
+
+  const handleAccept = async (solicitud: Request) => {
+    setProcessingId(solicitud.id)
+    try {
+      const result = await acceptBookingRequest(solicitud.id)
+      if (result.success) {
+        toast.success("Solicitud aceptada correctamente")
+        // Move from pending to accepted
+        setSolicitudesPendientes((prev) => prev.filter((s) => s.id !== solicitud.id))
+        setSolicitudesAceptadas((prev) => [{ ...solicitud, estado: "confirmed" }, ...prev])
+      } else {
+        toast.error(result.error || "Error al aceptar la solicitud")
+      }
+    } catch (err) {
+      toast.error("Error al procesar la solicitud")
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleRejectClick = (solicitud: Request) => {
+    setSelectedRequest(solicitud)
+    setRejectReason("")
+    setRejectDialogOpen(true)
+  }
+
+  const handleRejectConfirm = async () => {
+    if (!selectedRequest) return
+    
+    setProcessingId(selectedRequest.id)
+    setRejectDialogOpen(false)
+    
+    try {
+      const result = await rejectBookingRequest(selectedRequest.id, rejectReason || undefined)
+      if (result.success) {
+        toast.success("Solicitud rechazada")
+        // Move from pending to rejected
+        setSolicitudesPendientes((prev) => prev.filter((s) => s.id !== selectedRequest.id))
+        setSolicitudesRechazadas((prev) => [
+          { ...selectedRequest, estado: "rejected", motivo_rechazo: rejectReason },
+          ...prev,
+        ])
+      } else {
+        toast.error(result.error || "Error al rechazar la solicitud")
+      }
+    } catch (err) {
+      toast.error("Error al procesar la solicitud")
+    } finally {
+      setProcessingId(null)
+      setSelectedRequest(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -282,17 +345,29 @@ export default function SolicitudesAsesorPage() {
                         )}
 
                         <div className="flex gap-3">
-                          <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white">
-                            <CheckCircle className="h-4 w-4 mr-2" />
+                          <Button 
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => handleAccept(solicitud)}
+                            disabled={processingId === solicitud.id}
+                          >
+                            {processingId === solicitud.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                            )}
                             Aceptar Solicitud
                           </Button>
-                          <Button variant="outline" className="flex-1 border-gray-300 bg-transparent">
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Contactar
+                          <Button variant="outline" className="flex-1 border-gray-300 bg-transparent" asChild>
+                            <Link href={`/mensajes?to=${solicitud.student_id}`}>
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Contactar
+                            </Link>
                           </Button>
                           <Button
                             variant="outline"
                             className="border-red-300 text-red-600 hover:bg-red-50 bg-transparent"
+                            onClick={() => handleRejectClick(solicitud)}
+                            disabled={processingId === solicitud.id}
                           >
                             <XCircle className="h-4 w-4 mr-2" />
                             Rechazar
@@ -402,6 +477,49 @@ export default function SolicitudesAsesorPage() {
           </Tabs>
         </div>
       </main>
+
+      {/* Reject Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rechazar Solicitud</DialogTitle>
+            <DialogDescription>
+              {selectedRequest && (
+                <>Vas a rechazar la solicitud de <strong>{selectedRequest.student_nombre}</strong> para {selectedRequest.materia}.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reject-reason">Motivo del rechazo (opcional)</Label>
+              <Textarea
+                id="reject-reason"
+                placeholder="Ej: No tengo disponibilidad en ese horario, sugiero otro horario..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleRejectConfirm}
+              disabled={processingId !== null}
+            >
+              {processingId ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <XCircle className="h-4 w-4 mr-2" />
+              )}
+              Confirmar Rechazo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

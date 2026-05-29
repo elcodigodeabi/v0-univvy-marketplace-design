@@ -5,14 +5,14 @@
 **IMPORTANTE**: Copia estas URLs exactamente como aparecen aquí.
 
 ### Para Desarrollo (localhost)
-```
+\`\`\`
 http://localhost:3000
-```
+\`\`\`
 
 ### Para Producción (Univvy)
-```
+\`\`\`
 https://univvyorg.com
-```
+\`\`\`
 
 ---
 
@@ -29,15 +29,15 @@ https://univvyorg.com
 3. **Agrega las URLs**
    
    **Site URL** (la URL principal):
-   ```
+   \`\`\`
    https://univvyorg.com
-   ```
+   \`\`\`
 
    **Redirect URLs** (URLs permitidas para confirmación de email):
-   ```
+   \`\`\`
    http://localhost:3000
    https://univvyorg.com
-   ```
+   \`\`\`
 
 4. **Guarda los cambios**
    - Click en el botón **Save** en la esquina inferior derecha
@@ -48,12 +48,12 @@ https://univvyorg.com
 
 Después de guardar, debería verse así:
 
-```
+\`\`\`
 ✅ Site URL: https://univvyorg.com
 ✅ Allowed Redirect URLs:
    - http://localhost:3000
    - https://univvyorg.com
-```
+\`\`\`
 
 ---
 

@@ -126,14 +126,17 @@ export async function getAdvisorProfile(advisorId: string) {
         email,
         avatar_url,
         bio,
-        university,
-        specialties,
-        price_per_hour,
-        availability
+        universidad,
+        carrera,
+        especialidades,
+        precio_por_hora,
+        disponibilidad,
+        rating,
+        total_reviews,
+        sesiones_completadas
       `
       )
       .eq("id", advisorId)
-      .eq("role", "advisor")
       .single()
 
     if (error) throw error
@@ -154,7 +157,73 @@ export async function getAdvisorProfile(advisorId: string) {
 // Update advisor availability
 export async function updateAdvisorAvailability(
   advisorId: string,
-  availability: Record<string, Array<{ start: string; end: string }>>
+  availability: Record<string, { enabled: boolean; slots: Array<{ start: string; end: string }> }>
+) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  console.log("[v0] updateAdvisorAvailability called with:", { advisorId, userId: user?.id })
+
+  if (authError || !user || user.id !== advisorId) {
+    console.log("[v0] Auth error or user mismatch:", { authError: authError?.message, userId: user?.id, advisorId })
+    return {
+      success: false,
+      error: "No autorizado",
+    }
+  }
+
+  try {
+    console.log("[v0] Attempting to update disponibilidad for:", advisorId)
+    console.log("[v0] Availability data:", JSON.stringify(availability))
+    
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        disponibilidad: availability,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", advisorId)
+      .select()
+
+    if (error) {
+      console.error("[v0] Supabase update error:", error.message, error.code, error.details)
+      
+      // Check if it's a missing column error
+      if (error.message.includes("disponibilidad") || error.message.includes("column") || error.code === "42703") {
+        return {
+          success: false,
+          error: "La base de datos necesita actualizarse. Por favor, ejecuta el script de migración en Supabase: scripts/009_add_advisor_columns.sql",
+        }
+      }
+      throw error
+    }
+
+    console.log("[v0] Update successful:", data)
+    revalidatePath("/calendario-asesor")
+    revalidatePath("/gestion-asesor")
+    return {
+      success: true,
+      message: "Disponibilidad actualizada",
+    }
+  } catch (error: any) {
+    console.error("[v0] updateAdvisorAvailability error:", error?.message || error)
+    return {
+      success: false,
+      error: error?.message || "Error al actualizar disponibilidad",
+    }
+  }
+}
+
+// Update advisor profile (materias, precios, bio, etc.)
+export async function updateAdvisorProfile(
+  advisorId: string,
+  data: {
+    bio?: string
+    especialidades?: string[]
+    precio_por_hora?: number
+    universidad?: string
+    carrera?: string
+  }
 ) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -170,23 +239,171 @@ export async function updateAdvisorAvailability(
     const { error } = await supabase
       .from("profiles")
       .update({
-        availability,
+        ...data,
         updated_at: new Date().toISOString(),
       })
       .eq("id", advisorId)
 
     if (error) throw error
 
-    revalidatePath("/calendario-asesor")
+    revalidatePath("/gestion-asesor")
+    revalidatePath("/configuracion-asesor")
+    revalidatePath(`/asesores/${advisorId}`)
     return {
       success: true,
-      message: "Disponibilidad actualizada",
+      message: "Perfil actualizado",
     }
   } catch (error) {
-    console.error("[v0] updateAdvisorAvailability error:", error)
+    console.error("[v0] updateAdvisorProfile error:", error)
     return {
       success: false,
-      error: "Error al actualizar disponibilidad",
+      error: "Error al actualizar perfil",
+    }
+  }
+}
+
+// Accept a booking request
+export async function acceptBookingRequest(bookingId: string) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return {
+      success: false,
+      error: "No autorizado",
+    }
+  }
+
+  try {
+    // Verify the booking belongs to this advisor
+    const { data: booking, error: fetchError } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .eq("advisor_id", user.id)
+      .single()
+
+    if (fetchError || !booking) {
+      return {
+        success: false,
+        error: "Solicitud no encontrada",
+      }
+    }
+
+    if (booking.status !== "pending_payment" && booking.status !== "pending_confirmation") {
+      return {
+        success: false,
+        error: "Esta solicitud ya fue procesada",
+      }
+    }
+
+    // Update booking status to confirmed
+    const { error: updateError } = await supabase
+      .from("bookings")
+      .update({
+        status: "confirmed",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", bookingId)
+
+    if (updateError) throw updateError
+
+    // Create notification for student
+    await supabase.from("notifications").insert({
+      user_id: booking.student_id,
+      type: "booking_accepted",
+      title: "Solicitud Aceptada",
+      message: `Tu solicitud de asesoría ha sido aceptada. La sesión está confirmada.`,
+      data: { booking_id: bookingId },
+    })
+
+    revalidatePath("/solicitudes-asesor")
+    revalidatePath("/mis-sesiones-asesor")
+    revalidatePath("/calendario-asesor")
+
+    return {
+      success: true,
+      message: "Solicitud aceptada correctamente",
+    }
+  } catch (error) {
+    console.error("[v0] acceptBookingRequest error:", error)
+    return {
+      success: false,
+      error: "Error al aceptar la solicitud",
+    }
+  }
+}
+
+// Reject a booking request
+export async function rejectBookingRequest(bookingId: string, reason?: string) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return {
+      success: false,
+      error: "No autorizado",
+    }
+  }
+
+  try {
+    // Verify the booking belongs to this advisor
+    const { data: booking, error: fetchError } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .eq("advisor_id", user.id)
+      .single()
+
+    if (fetchError || !booking) {
+      return {
+        success: false,
+        error: "Solicitud no encontrada",
+      }
+    }
+
+    if (booking.status !== "pending_payment" && booking.status !== "pending_confirmation") {
+      return {
+        success: false,
+        error: "Esta solicitud ya fue procesada",
+      }
+    }
+
+    // Update booking status to rejected
+    const { error: updateError } = await supabase
+      .from("bookings")
+      .update({
+        status: "rejected",
+        cancelled_by: user.id,
+        cancelled_reason: reason || "Rechazada por el asesor",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", bookingId)
+
+    if (updateError) throw updateError
+
+    // Create notification for student
+    await supabase.from("notifications").insert({
+      user_id: booking.student_id,
+      type: "booking_rejected",
+      title: "Solicitud Rechazada",
+      message: reason
+        ? `Tu solicitud de asesoría fue rechazada. Motivo: ${reason}`
+        : "Tu solicitud de asesoría fue rechazada por el asesor.",
+      data: { booking_id: bookingId, reason },
+    })
+
+    revalidatePath("/solicitudes-asesor")
+
+    return {
+      success: true,
+      message: "Solicitud rechazada",
+    }
+  } catch (error) {
+    console.error("[v0] rejectBookingRequest error:", error)
+    return {
+      success: false,
+      error: "Error al rechazar la solicitud",
     }
   }
 }
@@ -209,11 +426,12 @@ export async function getAdvisorPendingRequests(advisorId: string) {
         duration_minutes,
         modalidad,
         status,
+        price,
         created_at
       `
       )
       .eq("advisor_id", advisorId)
-      .eq("status", "pending_payment")
+      .in("status", ["pending_payment", "pending_confirmation"])
       .order("created_at", { ascending: false })
 
     if (error) throw error
@@ -228,6 +446,131 @@ export async function getAdvisorPendingRequests(advisorId: string) {
       success: false,
       error: "Error al cargar solicitudes",
       data: [],
+    }
+  }
+}
+
+// Get advisors list for students (with filters)
+export async function getAdvisorsForStudents(filters?: {
+  universidad?: string
+  especialidad?: string
+  precioMax?: number
+}) {
+  const supabase = await createClient()
+
+  try {
+    let query = supabase
+      .from("profiles")
+      .select(
+        `
+        id,
+        full_name,
+        avatar_url,
+        bio,
+        universidad,
+        carrera,
+        especialidades,
+        precio_por_hora,
+        disponibilidad,
+        rating,
+        total_reviews,
+        sesiones_completadas
+      `
+      )
+      .eq("role", "asesor")
+      .order("rating", { ascending: false })
+
+    if (filters?.universidad) {
+      query = query.eq("universidad", filters.universidad)
+    }
+
+    if (filters?.precioMax) {
+      query = query.lte("precio_por_hora", filters.precioMax)
+    }
+
+    const { data: advisors, error } = await query
+
+    if (error) throw error
+
+    // Filter by especialidad if provided (need to filter in JS because it's an array)
+    let filteredAdvisors = advisors || []
+    if (filters?.especialidad) {
+      filteredAdvisors = filteredAdvisors.filter(
+        (a) => a.especialidades?.includes(filters.especialidad)
+      )
+    }
+
+    return {
+      success: true,
+      data: filteredAdvisors,
+    }
+  } catch (error) {
+    console.error("[v0] getAdvisorsForStudents error:", error)
+    return {
+      success: false,
+      error: "Error al cargar asesores",
+      data: [],
+    }
+  }
+}
+
+// Get single advisor details for student view
+export async function getAdvisorDetails(advisorId: string) {
+  const supabase = await createClient()
+
+  try {
+    const { data: advisor, error } = await supabase
+      .from("profiles")
+      .select(
+        `
+        id,
+        full_name,
+        avatar_url,
+        bio,
+        universidad,
+        carrera,
+        especialidades,
+        precio_por_hora,
+        disponibilidad,
+        rating,
+        total_reviews,
+        sesiones_completadas
+      `
+      )
+      .eq("id", advisorId)
+      .eq("role", "asesor")
+      .single()
+
+    if (error) throw error
+
+    // Get recent reviews
+    const { data: reviews } = await supabase
+      .from("reviews")
+      .select(
+        `
+        id,
+        rating,
+        comment,
+        created_at,
+        reviewer:profiles!reviewer_id(full_name, avatar_url)
+      `
+      )
+      .eq("reviewed_id", advisorId)
+      .order("created_at", { ascending: false })
+      .limit(5)
+
+    return {
+      success: true,
+      data: {
+        ...advisor,
+        reviews: reviews || [],
+      },
+    }
+  } catch (error) {
+    console.error("[v0] getAdvisorDetails error:", error)
+    return {
+      success: false,
+      error: "Error al cargar detalles del asesor",
     }
   }
 }
