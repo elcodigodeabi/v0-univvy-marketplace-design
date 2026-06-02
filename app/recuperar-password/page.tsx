@@ -36,7 +36,7 @@ export default function RecuperarPasswordPage() {
     setIsLoading(true)
 
     const supabase = createClient()
-    const redirectTo = "https://univvyorg.com/reset-password"
+    const redirectTo = "https://univvyorg.com/nueva-password"
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,
