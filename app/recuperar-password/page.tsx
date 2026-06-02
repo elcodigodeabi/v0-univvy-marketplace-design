@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, Suspense } from "react"
+import { useState, Suspense } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 
@@ -24,14 +24,21 @@ function Spinner({ className }: { className?: string }) {
 }
 
 // ─── Main content (needs useSearchParams, so must be inside Suspense) ─────────
-type PageView = "request-email" | "email-sent" | "verifying" | "invalid-code" | "new-password" | "password-changed"
+type PageView = "request-email" | "email-sent" | "invalid-code" | "new-password" | "password-changed"
 
 function RecuperarPasswordContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const code = searchParams.get("code")
+  const mode = searchParams.get("mode")   // "update" = session ready, show new-password form
+  const error = searchParams.get("error") // "invalid_link" = callback failed
 
-  const [view, setView] = useState<PageView>(code ? "verifying" : "request-email")
+  const initialView = (): PageView => {
+    if (mode === "update") return "new-password"
+    if (error === "invalid_link") return "invalid-code"
+    return "request-email"
+  }
+
+  const [view, setView] = useState<PageView>(initialView)
 
   // ── Email request state ──
   const [email, setEmail] = useState("")
@@ -46,27 +53,7 @@ function RecuperarPasswordContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
-  // ── CASO A: exchange PKCE code for session ──────────────────────────────────
-  useEffect(() => {
-    if (!code) return
-
-    console.log("[v0] PKCE code recibido:", code)
-    console.log("[v0] Longitud del code:", code.length)
-
-    const supabase = createClient()
-    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      if (error) {
-        console.error("[v0] PKCE exchange error:", error.message, "status:", error.status, error)
-        setView("invalid-code")
-      } else {
-        console.log("[v0] PKCE exchange exitoso, sesión establecida")
-        setView("new-password")
-      }
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // run only once on mount — code is stable
-
-  // ── CASO B: request reset email ─────────────────────────────────────────────
+  // ── Request reset email ─────────────────────────────────────────────────────
   const handleRequestEmail = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -82,14 +69,16 @@ function RecuperarPasswordContent() {
     setIsSending(true)
     const supabase = createClient()
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://univvyorg.com"
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/recuperar-password`,
+    // redirectTo must point to the server-side callback which exchanges the code
+    // and then redirects to /recuperar-password?mode=update
+    const { error: sendError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteUrl}/auth/callback?next=/recuperar-password`,
     })
     setIsSending(false)
 
-    if (error) {
+    if (sendError) {
       toast.error("Error al enviar el correo", {
-        description: error.message,
+        description: sendError.message,
         icon: <XCircle className="h-5 w-5 text-red-600" />,
       })
       return
@@ -122,12 +111,12 @@ function RecuperarPasswordContent() {
 
     setIsSaving(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.updateUser({ password })
+    const { error: updateError } = await supabase.auth.updateUser({ password })
     setIsSaving(false)
 
-    if (error) {
+    if (updateError) {
       toast.error("Error al actualizar contraseña", {
-        description: error.message,
+        description: updateError.message,
         icon: <XCircle className="h-5 w-5 text-red-600" />,
       })
       return
@@ -142,20 +131,18 @@ function RecuperarPasswordContent() {
 
   // ── Shared card wrapper ─────────────────────────────────────────────────────
   const iconBg =
-    view === "new-password" || view === "verifying" || view === "password-changed"
+    view === "new-password" || view === "password-changed"
       ? <Lock className="h-6 w-6 text-white" />
       : <Mail className="h-6 w-6 text-white" />
 
   const cardTitle =
     view === "new-password" ? "Nueva Contraseña" :
-    view === "verifying" ? "Verificando enlace..." :
     view === "invalid-code" ? "Enlace inválido" :
     view === "password-changed" ? "Contraseña actualizada" :
     "Recuperar Contraseña"
 
   const cardDesc =
     view === "new-password" ? "Crea una nueva contraseña para tu cuenta." :
-    view === "verifying" ? "Estamos verificando tu enlace de recuperación." :
     view === "invalid-code" ? "El enlace expiró o ya fue utilizado." :
     view === "password-changed" ? "Tu contraseña fue cambiada exitosamente." :
     "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña."
@@ -183,14 +170,6 @@ function RecuperarPasswordContent() {
           </CardHeader>
 
           <CardContent>
-            {/* ── Verifying ── */}
-            {view === "verifying" && (
-              <div className="flex flex-col items-center gap-4 py-6">
-                <Spinner className="h-8 w-8 text-red-600" />
-                <p className="text-sm text-gray-500">Verificando enlace de recuperación...</p>
-              </div>
-            )}
-
             {/* ── Invalid / expired code ── */}
             {view === "invalid-code" && (
               <div className="flex flex-col items-center gap-4 py-4 text-center">
