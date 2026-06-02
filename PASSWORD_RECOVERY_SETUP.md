@@ -24,12 +24,12 @@ Necesitas actualizar las URLs de redireccionamiento en Supabase para que incluya
 
 En la sección **"Redirect URLs"**, agrega ESTAS tres URLs:
 
-```
+\`\`\`
 http://localhost:3000
 http://localhost:3000/auth/recover
 https://univvyorg.com
 https://univvyorg.com/auth/recover
-```
+\`\`\`
 
 **Copia exactamente como están arriba**, una por línea.
 
@@ -43,14 +43,14 @@ https://univvyorg.com/auth/recover
 
 Después de guardar, deberías ver:
 
-```
+\`\`\`
 ✅ Site URL: https://univvyorg.com
 ✅ Allowed Redirect URLs:
    - http://localhost:3000
    - http://localhost:3000/auth/recover
    - https://univvyorg.com
    - https://univvyorg.com/auth/recover
-```
+\`\`\`
 
 ---
 
