@@ -1,31 +1,72 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
+import { useSearchParams, useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Mail, CheckCircle, XCircle } from "lucide-react"
+import { ArrowLeft, Mail, Lock, CheckCircle, XCircle, Eye, EyeOff, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 
-export default function RecuperarPasswordPage() {
+// ─── Shared spinner ───────────────────────────────────────────────────────────
+function Spinner({ className }: { className?: string }) {
+  return (
+    <svg className={`animate-spin ${className ?? "h-4 w-4"}`} viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    </svg>
+  )
+}
+
+// ─── Main content (needs useSearchParams, so must be inside Suspense) ─────────
+type PageView = "request-email" | "email-sent" | "verifying" | "invalid-code" | "new-password" | "password-changed"
+
+function RecuperarPasswordContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const code = searchParams.get("code")
+
+  const [view, setView] = useState<PageView>(code ? "verifying" : "request-email")
+
+  // ── Email request state ──
   const [email, setEmail] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [emailSent, setEmailSent] = useState(false)
+  const [isSending, setIsSending] = useState(false)
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return emailRegex.test(email)
-  }
+  // ── New password state ──
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordError, setPasswordError] = useState("")
+  const [confirmError, setConfirmError] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // ── CASO A: exchange PKCE code for session ──────────────────────────────────
+  useEffect(() => {
+    if (!code) return
+
+    const supabase = createClient()
+    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+      if (error) {
+        setView("invalid-code")
+      } else {
+        setView("new-password")
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // run only once on mount — code is stable
+
+  // ── CASO B: request reset email ─────────────────────────────────────────────
+  const handleRequestEmail = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!validateEmail(email)) {
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
       toast.error("Correo inválido", {
         description: "Por favor ingresa un correo electrónico válido.",
         icon: <XCircle className="h-5 w-5 text-red-600" />,
@@ -33,16 +74,13 @@ export default function RecuperarPasswordPage() {
       return
     }
 
-    setIsLoading(true)
-
+    setIsSending(true)
     const supabase = createClient()
-    const redirectTo = "https://univvyorg.com/nueva-password"
-
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://univvyorg.com"
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo,
+      redirectTo: `${siteUrl}/recuperar-password`,
     })
-
-    setIsLoading(false)
+    setIsSending(false)
 
     if (error) {
       toast.error("Error al enviar el correo", {
@@ -52,17 +90,74 @@ export default function RecuperarPasswordPage() {
       return
     }
 
-    setEmailSent(true)
-    toast.success("Correo enviado exitosamente", {
-      description: `Se ha enviado un enlace de recuperación a ${email}`,
+    setView("email-sent")
+    toast.success("Correo enviado", {
+      description: `Se envió un enlace de recuperación a ${email}`,
       icon: <CheckCircle className="h-5 w-5 text-green-600" />,
     })
   }
 
+  // ── Update password ─────────────────────────────────────────────────────────
+  const handleNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    let valid = true
+    setPasswordError("")
+    setConfirmError("")
+
+    if (password.length < 8) {
+      setPasswordError("La contraseña debe tener al menos 8 caracteres.")
+      valid = false
+    }
+    if (password !== confirmPassword) {
+      setConfirmError("Las contraseñas no coinciden.")
+      valid = false
+    }
+    if (!valid) return
+
+    setIsSaving(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.updateUser({ password })
+    setIsSaving(false)
+
+    if (error) {
+      toast.error("Error al actualizar contraseña", {
+        description: error.message,
+        icon: <XCircle className="h-5 w-5 text-red-600" />,
+      })
+      return
+    }
+
+    setView("password-changed")
+    toast.success("Contraseña actualizada", {
+      icon: <CheckCircle className="h-5 w-5 text-green-600" />,
+    })
+    setTimeout(() => router.push("/login"), 3000)
+  }
+
+  // ── Shared card wrapper ─────────────────────────────────────────────────────
+  const iconBg =
+    view === "new-password" || view === "verifying" || view === "password-changed"
+      ? <Lock className="h-6 w-6 text-white" />
+      : <Mail className="h-6 w-6 text-white" />
+
+  const cardTitle =
+    view === "new-password" ? "Nueva Contraseña" :
+    view === "verifying" ? "Verificando enlace..." :
+    view === "invalid-code" ? "Enlace inválido" :
+    view === "password-changed" ? "Contraseña actualizada" :
+    "Recuperar Contraseña"
+
+  const cardDesc =
+    view === "new-password" ? "Crea una nueva contraseña para tu cuenta." :
+    view === "verifying" ? "Estamos verificando tu enlace de recuperación." :
+    view === "invalid-code" ? "El enlace expiró o ya fue utilizado." :
+    view === "password-changed" ? "Tu contraseña fue cambiada exitosamente." :
+    "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña."
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Back to login link */}
         <Link
           href="/login"
           className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-red-600 transition-colors mb-8"
@@ -75,17 +170,43 @@ export default function RecuperarPasswordPage() {
           <CardHeader className="space-y-1">
             <div className="flex items-center justify-center mb-4">
               <div className="h-12 w-12 bg-red-600 rounded-lg flex items-center justify-center">
-                <Mail className="h-6 w-6 text-white" />
+                {iconBg}
               </div>
             </div>
-            <CardTitle className="text-2xl text-center text-gray-900">Recuperar Contraseña</CardTitle>
-            <CardDescription className="text-center text-gray-600">
-              Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña
-            </CardDescription>
+            <CardTitle className="text-2xl text-center text-gray-900">{cardTitle}</CardTitle>
+            <CardDescription className="text-center text-gray-600">{cardDesc}</CardDescription>
           </CardHeader>
+
           <CardContent>
-            {!emailSent ? (
-              <form onSubmit={handleSubmit} className="space-y-4">
+            {/* ── Verifying ── */}
+            {view === "verifying" && (
+              <div className="flex flex-col items-center gap-4 py-6">
+                <Spinner className="h-8 w-8 text-red-600" />
+                <p className="text-sm text-gray-500">Verificando enlace de recuperación...</p>
+              </div>
+            )}
+
+            {/* ── Invalid / expired code ── */}
+            {view === "invalid-code" && (
+              <div className="flex flex-col items-center gap-4 py-4 text-center">
+                <div className="h-14 w-14 bg-amber-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="h-7 w-7 text-amber-600" />
+                </div>
+                <p className="text-sm text-gray-600">
+                  El enlace expiró o ya fue usado. Solicitá uno nuevo ingresando tu correo.
+                </p>
+                <Button
+                  onClick={() => setView("request-email")}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Solicitar nuevo enlace
+                </Button>
+              </div>
+            )}
+
+            {/* ── Request email form ── */}
+            {view === "request-email" && (
+              <form onSubmit={handleRequestEmail} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-gray-900">
                     Correo Electrónico
@@ -97,30 +218,28 @@ export default function RecuperarPasswordPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    disabled={isLoading}
+                    disabled={isSending}
                     className="border-gray-300"
                   />
                 </div>
-
-                <Button 
-                  type="submit" 
-                  className="w-full bg-red-600 hover:bg-red-700 text-white" 
-                  disabled={isLoading || !email}
+                <Button
+                  type="submit"
+                  className="w-full bg-red-600 hover:bg-red-700 text-white"
+                  disabled={isSending || !email}
                 >
-                  {isLoading ? (
+                  {isSending ? (
                     <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Enviando...
+                      <Spinner /> Enviando...
                     </span>
                   ) : (
                     "Enviar enlace de recuperación"
                   )}
                 </Button>
               </form>
-            ) : (
+            )}
+
+            {/* ── Email sent confirmation ── */}
+            {view === "email-sent" && (
               <div className="text-center space-y-4">
                 <div className="flex justify-center">
                   <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center">
@@ -130,22 +249,130 @@ export default function RecuperarPasswordPage() {
                 <div className="space-y-2">
                   <p className="text-gray-900 font-medium">Correo enviado</p>
                   <p className="text-sm text-gray-600">
-                    Hemos enviado un enlace de recuperación a <span className="font-medium text-gray-900">{email}</span>
+                    Enviamos un enlace de recuperación a{" "}
+                    <span className="font-medium text-gray-900">{email}</span>.
                   </p>
-                  <p className="text-sm text-gray-500">Revisa tu bandeja de entrada y sigue las instrucciones.</p>
+                  <p className="text-sm text-gray-500">Revisá tu bandeja de entrada y seguí las instrucciones.</p>
                 </div>
+              </div>
+            )}
+
+            {/* ── New password form ── */}
+            {view === "new-password" && (
+              <form onSubmit={handleNewPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-gray-900">
+                    Nueva Contraseña
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setPasswordError("") }}
+                      required
+                      disabled={isSaving}
+                      className={`border-gray-300 pr-10 ${passwordError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {passwordError && <p className="text-xs text-red-600">{passwordError}</p>}
+                  <p className="text-xs text-gray-500">Mínimo 8 caracteres.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword" className="text-gray-900">
+                    Confirmar Contraseña
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirm ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => { setConfirmPassword(e.target.value); setConfirmError("") }}
+                      required
+                      disabled={isSaving}
+                      className={`border-gray-300 pr-10 ${confirmError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm(!showConfirm)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      aria-label={showConfirm ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    >
+                      {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {confirmError && <p className="text-xs text-red-600">{confirmError}</p>}
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-red-600 hover:bg-red-700 text-white"
+                  disabled={isSaving || !password || !confirmPassword}
+                >
+                  {isSaving ? (
+                    <span className="flex items-center gap-2">
+                      <Spinner /> Guardando...
+                    </span>
+                  ) : (
+                    "Cambiar contraseña"
+                  )}
+                </Button>
+              </form>
+            )}
+
+            {/* ── Password changed success ── */}
+            {view === "password-changed" && (
+              <div className="flex flex-col items-center gap-4 py-4 text-center">
+                <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-medium text-gray-900">Contraseña actualizada</p>
+                  <p className="text-sm text-gray-600">Ya podés iniciar sesión con tu nueva contraseña.</p>
+                  <p className="text-sm text-gray-500">Redirigiendo...</p>
+                </div>
+                <Spinner className="h-5 w-5 text-red-600" />
               </div>
             )}
 
             <div className="mt-6 text-center text-sm text-gray-600">
               ¿Recordaste tu contraseña?{" "}
               <Link href="/login" className="text-red-600 hover:text-red-700 font-medium">
-                Inicia sesión
+                Iniciá sesión
               </Link>
             </div>
           </CardContent>
         </Card>
       </div>
     </div>
+  )
+}
+
+// ─── Page export with Suspense (required for useSearchParams) ─────────────────
+export default function RecuperarPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <svg className="animate-spin h-8 w-8 text-red-600" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        </div>
+      }
+    >
+      <RecuperarPasswordContent />
+    </Suspense>
   )
 }
