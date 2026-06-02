@@ -50,11 +50,16 @@ function RecuperarPasswordContent() {
   useEffect(() => {
     if (!code) return
 
+    console.log("[v0] PKCE code recibido:", code)
+    console.log("[v0] Longitud del code:", code.length)
+
     const supabase = createClient()
     supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
       if (error) {
+        console.error("[v0] PKCE exchange error:", error.message, "status:", error.status, error)
         setView("invalid-code")
       } else {
+        console.log("[v0] PKCE exchange exitoso, sesión establecida")
         setView("new-password")
       }
     })
