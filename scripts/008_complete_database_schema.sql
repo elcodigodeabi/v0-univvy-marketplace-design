@@ -444,7 +444,11 @@ BEGIN
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data ->> 'full_name', NEW.raw_user_meta_data ->> 'nombre', split_part(NEW.email, '@', 1)),
-    COALESCE(NEW.raw_user_meta_data ->> 'role', NEW.raw_user_meta_data ->> 'tipo', 'alumno')
+    CASE 
+      WHEN NEW.raw_user_meta_data ->> 'tipo' = 'asesor' THEN 'asesor'
+      WHEN NEW.raw_user_meta_data ->> 'role' = 'asesor' THEN 'asesor'
+      ELSE 'alumno'
+    END
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
