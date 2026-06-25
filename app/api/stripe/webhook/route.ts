@@ -100,6 +100,49 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      // ── SEPA Debit / async payment succeeded (after bank confirms)
+      // checkout.session.completed covers cards, but SEPA debit may arrive here first.
+      case "payment_intent.succeeded": {
+        const pi = event.data.object as Stripe.PaymentIntent
+        const bookingId = pi.metadata?.booking_id
+        if (!bookingId) break
+
+        // Idempotent: only update if still pending_payment
+        const { data: booking, error: bookingError } = await supabase
+          .from("bookings")
+          .update({
+            status: "confirmed",
+            stripe_payment_intent_id: pi.id,
+          })
+          .eq("id", bookingId)
+          .eq("status", "pending_payment")
+          .select()
+          .single()
+
+        if (bookingError) {
+          console.error("[webhook] payment_intent.succeeded booking update failed:", bookingError.message)
+          break
+        }
+
+        if (booking) {
+          await supabase.from("payments").upsert(
+            {
+              booking_id: booking.id,
+              payer_id: booking.student_id,
+              payee_id: booking.advisor_id,
+              amount: booking.price,
+              platform_fee: booking.platform_fee,
+              advisor_amount: booking.advisor_amount,
+              currency: "EUR",
+              status: "in_escrow",
+              stripe_payment_intent_id: pi.id,
+            },
+            { onConflict: "booking_id" }
+          )
+        }
+        break
+      }
+
       // ── Payment failed → keep as pending_payment or mark cancelled
       case "payment_intent.payment_failed": {
         const pi = event.data.object as Stripe.PaymentIntent

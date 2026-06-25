@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 
 // ─── Create Stripe Checkout Session ───────────────────────────────────────
 // Called by createBooking in bookings.ts after the booking row is saved.
+// Supports: credit card (1 installment), debit card, and SEPA bank transfer.
 export async function createStripeCheckoutSession(params: {
   bookingId: string
   advisorId: string
@@ -25,7 +26,8 @@ export async function createStripeCheckoutSession(params: {
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    // Let Stripe pick the best payment methods for the user's location
+    // Explicit payment methods: card (debit + credit, 1 installment) and SEPA bank transfer
+    payment_method_types: ["card", "sepa_debit"],
     line_items: [
       {
         price_data: {

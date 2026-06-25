@@ -33,6 +33,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAsesor } from "@/hooks/use-asesores"
 import { createBooking } from "@/app/actions/bookings"
+import { initBankTransfer } from "@/app/actions/bank-transfer"
+import { CreditCard, Building2 } from "lucide-react"
 
 interface SelectedSlot {
   date: Date
@@ -52,6 +54,7 @@ export default function AgendarSesionPage() {
   const [modalidad, setModalidad] = useState("virtual")
   const [notas, setNotas] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [metodoPago, setMetodoPago] = useState<"tarjeta" | "transferencia">("tarjeta")
 
   // Asesor data from Supabase via use-asesores hook
   const { asesor: asesorData, loading: asesorLoading } = useAsesor(params.id || "")
@@ -164,7 +167,7 @@ export default function AgendarSesionPage() {
       const scheduledDate = new Date(slot.date)
       scheduledDate.setHours(hour, minute, 0, 0)
 
-      const { checkoutUrl } = await createBooking({
+      const bookingParams = {
         advisorId: params.id!,
         advisorName: asesor.nombre,
         scheduledAt: scheduledDate.toISOString(),
@@ -173,10 +176,17 @@ export default function AgendarSesionPage() {
         notes: notas || undefined,
         subject: asesor.especialidades[0] || undefined,
         pricePerHour: asesor.precio,
-      })
+      }
 
-      // Redirect to Stripe Checkout
-      window.location.href = checkoutUrl
+      if (metodoPago === "transferencia") {
+        // Flujo de transferencia bancaria
+        const { bookingId, transferId } = await initBankTransfer(bookingParams)
+        router.push(`/pago/transferencia/${bookingId}?transferId=${transferId}`)
+      } else {
+        // Flujo de tarjeta — redirige a Stripe Checkout
+        const { checkoutUrl } = await createBooking(bookingParams)
+        window.location.href = checkoutUrl
+      }
     } catch (error: any) {
       toast.error(error?.message || "Error al crear la reserva. Intenta de nuevo.")
       setIsLoading(false)
@@ -237,7 +247,9 @@ export default function AgendarSesionPage() {
                           <span className="text-sm font-medium text-gray-900">{asesor.rating}</span>
                         </div>
                         <span className="text-gray-300">|</span>
-                        <span className="text-sm text-gray-600">${asesor.precio.toLocaleString()}/hora</span>
+                        <span className="text-sm text-gray-600">
+                          {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(asesor.precio)}/hora
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -422,11 +434,15 @@ export default function AgendarSesionPage() {
                       <div className="border-t border-gray-200 mt-4 pt-4">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-gray-600">Precio por hora</span>
-                          <span className="font-medium text-gray-900">${asesor.precio.toLocaleString()}</span>
+                          <span className="font-medium text-gray-900">
+                            {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(asesor.precio)}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between text-lg font-bold">
                           <span className="text-gray-900">Total</span>
-                          <span className="text-red-600">${totalCost.toLocaleString()}</span>
+                          <span className="text-red-600">
+                            {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(totalCost)}
+                          </span>
                         </div>
                       </div>
 
@@ -535,10 +551,58 @@ export default function AgendarSesionPage() {
               />
             </div>
 
+            {/* Payment Method */}
+            <div className="space-y-3">
+              <Label className="text-gray-900">Método de pago</Label>
+              <RadioGroup
+                value={metodoPago}
+                onValueChange={(v) => setMetodoPago(v as "tarjeta" | "transferencia")}
+                className="grid grid-cols-2 gap-3"
+              >
+                <Label
+                  htmlFor="tarjeta"
+                  className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
+                    metodoPago === "tarjeta" ? "border-red-600 bg-red-50" : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <RadioGroupItem value="tarjeta" id="tarjeta" className="border-gray-300" />
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-gray-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Tarjeta</p>
+                      <p className="text-xs text-gray-500">Débito / Crédito</p>
+                    </div>
+                  </div>
+                </Label>
+                <Label
+                  htmlFor="transferencia"
+                  className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
+                    metodoPago === "transferencia" ? "border-red-600 bg-red-50" : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <RadioGroupItem value="transferencia" id="transferencia" className="border-gray-300" />
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-gray-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Transferencia</p>
+                      <p className="text-xs text-gray-500">Bancaria (SEPA)</p>
+                    </div>
+                  </div>
+                </Label>
+              </RadioGroup>
+              {metodoPago === "transferencia" && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  Recibirás los datos bancarios para realizar la transferencia. La reserva se confirmará una vez validado el comprobante.
+                </p>
+              )}
+            </div>
+
             {/* Total */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
               <span className="text-lg font-semibold text-gray-900">Total a pagar</span>
-              <span className="text-2xl font-bold text-red-600">${totalCost.toLocaleString()}</span>
+              <span className="text-2xl font-bold text-red-600">
+                {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(totalCost)}
+              </span>
             </div>
           </div>
 
