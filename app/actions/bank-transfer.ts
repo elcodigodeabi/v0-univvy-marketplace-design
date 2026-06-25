@@ -6,7 +6,7 @@ import { calculatePricing } from "@/lib/stripe"
 import { revalidatePath } from "next/cache"
 
 // ─── Datos bancarios de la cuenta receptora (desde variables de entorno) ──
-export function getBankAccountDetails() {
+export async function getBankAccountDetails() {
   return {
     holder: process.env.BANK_ACCOUNT_HOLDER || "Univvy SL",
     iban: process.env.BANK_IBAN || "ES91 2100 0418 4502 0005 1332",
