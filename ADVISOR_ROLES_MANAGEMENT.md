@@ -18,7 +18,7 @@ Los asesores que se registraban por email no aparecían en las búsquedas porque
 ## Flujo Correcto (Actual)
 
 ### 1. **Registro de Usuario**
-```
+\`\`\`
 Usuario selecciona "Asesor" en formulario
     ↓
 Supabase signUp recibe data con tipo='asesor'
@@ -26,7 +26,7 @@ Supabase signUp recibe data con tipo='asesor'
 Trigger handle_new_user() crea perfil con role='asesor'
     ↓
 ✅ El asesor aparece en búsquedas automáticamente
-```
+\`\`\`
 
 **Archivos:**
 - `app/registro/page.tsx` - Formulario de registro
@@ -36,10 +36,10 @@ Trigger handle_new_user() crea perfil con role='asesor'
 ### 2. **Verificación de Roles**
 Para asegurar que todos los asesores tienen rol correcto:
 
-```bash
+\`\`\`bash
 # En Supabase SQL Editor:
 SELECT COUNT(*) FROM public.profiles WHERE role = 'asesor';
-```
+\`\`\`
 
 ### 3. **Panel de Admin**
 Nuevo panel en `/admin/usuarios-roles` permite:
@@ -60,10 +60,10 @@ Nuevo panel en `/admin/usuarios-roles` permite:
 ### Script de Validación Periódica
 Ejecuta regularmente para detectar inconsistencias:
 
-```bash
+\`\`\`bash
 # En Supabase SQL Editor, copia el contenido de:
 scripts/012_validate_advisor_roles.sql
-```
+\`\`\`
 
 Este script:
 - ✅ Detecta usuarios con `tipo='asesor'` pero `role!='asesor'`
@@ -73,14 +73,14 @@ Este script:
 
 ### Reparación Manual (si es necesario)
 
-```sql
+\`\`\`sql
 UPDATE public.profiles p
 SET role = 'asesor'
 FROM auth.users u
 WHERE p.id = u.id 
   AND u.raw_user_meta_data->>'tipo' = 'asesor'
   AND p.role != 'asesor';
-```
+\`\`\`
 
 ---
 
@@ -88,7 +88,7 @@ WHERE p.id = u.id
 
 **Ubicación:** `scripts/008_complete_database_schema.sql` (línea 440)
 
-```sql
+\`\`\`sql
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -109,7 +109,7 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-```
+\`\`\`
 
 **Mejoras aplicadas:**
 - Usa `CASE` para garantizar captura de `tipo = 'asesor'`
@@ -126,13 +126,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 3. `/asesores/[id]` - Perfil de asesor
 
 **Query base:**
-```typescript
+\`\`\`typescript
 const { data: asesores } = await supabase
   .from("profiles")
   .select("*")
   .eq("role", "asesor")
   .order("created_at", { ascending: false })
-```
+\`\`\`
 
 ---
 

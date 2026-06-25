@@ -72,7 +72,7 @@ export async function initBankTransfer(params: {
     throw new Error("Error al crear la reserva: " + (bookingError?.message || ""))
   }
 
-  const bankDetails = getBankAccountDetails()
+  const bankDetails = await getBankAccountDetails()
 
   // 2. Crear registro de transferencia bancaria
   const { data: transfer, error: transferError } = await supabase
