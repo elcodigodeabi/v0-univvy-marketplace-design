@@ -3,8 +3,9 @@ import { stripe } from "@/lib/stripe"
 import { createServiceClient } from "@/lib/supabase/service"
 import Stripe from "stripe"
 
-// Stripe requires the raw body for signature verification
-export const config = { api: { bodyParser: false } }
+// En el App Router, req.text() ya entrega el body sin procesar (raw),
+// necesario para la verificación de firma de Stripe.
+export const runtime = "nodejs"
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
