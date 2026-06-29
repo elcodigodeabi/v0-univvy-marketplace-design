@@ -1,24 +1,28 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { calculatePricing, AUTO_RELEASE_HOURS } from "@/lib/stripe"
-import {
-  createStripeCheckoutSession,
-  getStripeCheckoutSession,
-  refundToStudent,
-} from "@/app/actions/stripe"
 import { revalidatePath } from "next/cache"
 
-// ─── Create a booking + Stripe Checkout Session ───────────────────────────
+const PLATFORM_FEE_PERCENT = 0.10
+const AUTO_RELEASE_HOURS = 24
+
+function calculatePricing(pricePerHour: number, durationMinutes: number) {
+  const totalCents = Math.round((pricePerHour * durationMinutes) / 60 * 100)
+  const platformFeeCents = Math.round(totalCents * PLATFORM_FEE_PERCENT)
+  const advisorAmountCents = totalCents - platformFeeCents
+  return { totalCents, platformFeeCents, advisorAmountCents }
+}
+
+// ─── Create a booking ─────────────────────────────────────────────────────
 export async function createBooking(params: {
   advisorId: string
   advisorName: string
-  scheduledAt: string        // ISO string
+  scheduledAt: string
   durationMinutes: number
   modalidad: "virtual" | "presencial"
   notes?: string
   subject?: string
-  pricePerHour: number       // euros, e.g. 25
+  pricePerHour: number
 }) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -30,7 +34,6 @@ export async function createBooking(params: {
     .eq("id", user.id)
     .single()
 
-  // Calculate EUR cents
   const { advisorAmountCents, platformFeeCents, totalCents } = calculatePricing(
     params.pricePerHour,
     params.durationMinutes
@@ -42,14 +45,7 @@ export async function createBooking(params: {
   )
 
   const title = params.subject ? `Asesoría: ${params.subject}` : "Asesoría"
-  const dateFormatted = scheduledDate.toLocaleDateString("es-ES", {
-    weekday: "short", day: "numeric", month: "short",
-  })
-  const timeFormatted = scheduledDate.toLocaleTimeString("es-ES", {
-    hour: "2-digit", minute: "2-digit",
-  })
 
-  // 1. Insert booking with status pending_payment
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
     .insert({
@@ -65,7 +61,7 @@ export async function createBooking(params: {
       platform_fee: platformFeeCents,
       advisor_amount: advisorAmountCents,
       currency: "EUR",
-      status: "pending_payment",
+      status: "confirmed",
       auto_release_at: autoReleaseAt.toISOString(),
       advisor_name: params.advisorName,
       student_name: studentProfile?.full_name || user.email?.split("@")[0] || "Estudiante",
@@ -77,89 +73,20 @@ export async function createBooking(params: {
     throw new Error("Error al crear la reserva")
   }
 
-  // 2. Create Stripe Checkout Session in EUR
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-  const { checkoutUrl, checkoutSessionId } = await createStripeCheckoutSession({
-    bookingId: booking.id,
-    advisorId: params.advisorId,
-    advisorName: params.advisorName,
-    studentEmail: studentProfile?.email || user.email!,
-    title,
-    description: `Con ${params.advisorName} · ${dateFormatted} ${timeFormatted} · ${params.modalidad}`,
-    pricePerHour: params.pricePerHour,
-    durationMinutes: params.durationMinutes,
-    cancelUrl: `${baseUrl}/agendar/${params.advisorId}?cancelled=true`,
+  // Insert payment record as pending
+  await supabase.from("payments").insert({
+    booking_id: booking.id,
+    payer_id: booking.student_id,
+    payee_id: booking.advisor_id,
+    amount: totalCents,
+    platform_fee: platformFeeCents,
+    advisor_amount: advisorAmountCents,
+    currency: "EUR",
+    status: "pending",
   })
 
-  // 3. Persist checkout session ID on booking
-  await supabase
-    .from("bookings")
-    .update({ stripe_checkout_session_id: checkoutSessionId })
-    .eq("id", booking.id)
-
-  return { bookingId: booking.id, checkoutUrl }
-}
-
-// ─── Confirm payment after Stripe success redirect ────────────────────────
-export async function confirmBookingPayment(params: {
-  bookingId: string
-  checkoutSessionId: string
-}) {
-  const supabase = await createClient()
-
-  // Verify with Stripe — never trust the URL params alone
-  const session = await getStripeCheckoutSession(params.checkoutSessionId)
-
-  if (session.payment_status !== "paid") {
-    throw new Error("El pago no fue completado")
-  }
-
-  const paymentIntentId =
-    typeof session.payment_intent === "string"
-      ? session.payment_intent
-      : session.payment_intent?.id ?? null
-
-  // Upsert: move pending_payment → confirmed (idempotent)
-  const { data: booking, error } = await supabase
-    .from("bookings")
-    .update({
-      status: "confirmed",
-      stripe_payment_intent_id: paymentIntentId,
-      stripe_checkout_session_id: params.checkoutSessionId,
-    })
-    .eq("id", params.bookingId)
-    .eq("status", "pending_payment")
-    .select()
-    .single()
-
-  if (error) {
-    // Already confirmed (e.g. webhook fired first) — return current state
-    const { data: existing } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("id", params.bookingId)
-      .single()
-    return existing
-  }
-
-  // Insert escrow payment record
-  if (booking) {
-    await supabase.from("payments").insert({
-      booking_id: booking.id,
-      payer_id: booking.student_id,
-      payee_id: booking.advisor_id,
-      amount: booking.price,
-      platform_fee: booking.platform_fee,
-      advisor_amount: booking.advisor_amount,
-      currency: "EUR",
-      status: "in_escrow",
-      stripe_payment_intent_id: paymentIntentId,
-      stripe_checkout_session_id: params.checkoutSessionId,
-    })
-  }
-
   revalidatePath("/mis-sesiones")
-  return booking
+  return { bookingId: booking.id }
 }
 
 // ─── Student confirms session occurred ────────────────────────────────────
@@ -217,7 +144,6 @@ async function resolveEscrowIfReady(bookingId: string) {
   const neitherConfirmed = booking.student_confirmed === false && booking.advisor_confirmed === false
 
   if (bothConfirmed) {
-    // Both say it happened → release escrow, mark completed
     await supabase
       .from("bookings")
       .update({ status: "completed", escrow_released_at: new Date().toISOString() })
@@ -228,19 +154,9 @@ async function resolveEscrowIfReady(bookingId: string) {
       .update({ status: "released", escrow_released_at: new Date().toISOString() })
       .eq("booking_id", bookingId)
 
-    // Increment advisor's completed sessions count
     await supabase.rpc("increment_advisor_sessions", { advisor_id: booking.advisor_id }).catch(() => {})
 
   } else if (neitherConfirmed) {
-    // Both say it didn't happen → auto-refund student
-    if (booking.stripe_payment_intent_id) {
-      await refundToStudent({
-        paymentIntentId: booking.stripe_payment_intent_id,
-        bookingId,
-        reason: "session_not_held",
-      })
-    }
-
     await supabase
       .from("bookings")
       .update({ status: "refunded", cancelled_at: new Date().toISOString() })
@@ -252,7 +168,6 @@ async function resolveEscrowIfReady(bookingId: string) {
       .eq("booking_id", bookingId)
 
   } else {
-    // Conflict → escalate to dispute (Univvy admin resolves)
     await supabase
       .from("bookings")
       .update({ status: "disputed" })
@@ -278,23 +193,14 @@ export async function cancelBooking(bookingId: string, reason: string) {
   const isAdvisor = booking.advisor_id === user.id
   if (!isStudent && !isAdvisor) throw new Error("Sin permisos para cancelar esta reserva")
 
-  // Only cancellable if confirmed (not started/completed/disputed)
   if (!["confirmed", "pending_payment"].includes(booking.status)) {
     throw new Error("Esta reserva no se puede cancelar")
   }
 
-  // Refund student if payment was captured
-  if (booking.status === "confirmed" && booking.stripe_payment_intent_id) {
-    await refundToStudent({
-      paymentIntentId: booking.stripe_payment_intent_id,
-      bookingId,
-      reason: "cancellation",
-    })
-    await supabase
-      .from("payments")
-      .update({ status: "refunded", refunded_at: new Date().toISOString(), refund_reason: reason })
-      .eq("booking_id", bookingId)
-  }
+  await supabase
+    .from("payments")
+    .update({ status: "refunded", refunded_at: new Date().toISOString(), refund_reason: reason })
+    .eq("booking_id", bookingId)
 
   await supabase
     .from("bookings")
