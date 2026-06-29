@@ -7,9 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { ArrowLeft, Search, AlertCircle } from "lucide-react"
+import { ArrowLeft, Search, AlertCircle, Loader2 } from "lucide-react"
 import Link from "next/link"
 
 interface User {
