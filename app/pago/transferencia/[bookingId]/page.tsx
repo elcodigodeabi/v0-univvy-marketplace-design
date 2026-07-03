@@ -24,7 +24,6 @@ import {
   Info,
 } from "lucide-react"
 import { toast } from "sonner"
-import { getBankTransferStatus, uploadTransferProof } from "@/app/actions/bank-transfer"
 import { createClient } from "@/lib/supabase/client"
 
 interface BankTransfer {
@@ -105,7 +104,12 @@ export default function BankTransferPage() {
         if (bookingData) setBooking(bookingData)
 
         // Fetch transfer
-        const transferData = await getBankTransferStatus(params.bookingId)
+        const { data: transferData } = await supabase
+          .from("bank_transfers")
+          .select("*")
+          .eq("booking_id", params.bookingId)
+          .single()
+
         if (transferData) {
           setTransfer(transferData as BankTransfer)
           if (
@@ -161,14 +165,23 @@ export default function BankTransferPage() {
 
       const { url: proofUrl } = await uploadRes.json()
 
-      // Save in Supabase
-      await uploadTransferProof({
-        transferId: transfer.id,
-        bookingId: params.bookingId,
-        proofUrl,
-        transferDate,
-        transferTime: transferTime || undefined,
-      })
+      // Save in Supabase directly
+      const supabase = createClient()
+      await supabase
+        .from("bank_transfers")
+        .update({
+          proof_url: proofUrl,
+          proof_uploaded_at: new Date().toISOString(),
+          transfer_date: transferDate,
+          transfer_time: transferTime || null,
+          status: "proof_uploaded",
+        })
+        .eq("id", transfer.id)
+
+      await supabase
+        .from("bookings")
+        .update({ status: "pending_validation" })
+        .eq("id", params.bookingId)
 
       setSubmitted(true)
       toast.success("Comprobante enviado correctamente. Lo validaremos en breve.")

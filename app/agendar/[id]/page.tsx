@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -33,8 +33,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAsesor } from "@/hooks/use-asesores"
 import { createBooking } from "@/app/actions/bookings"
-import { initBankTransfer } from "@/app/actions/bank-transfer"
-import { CreditCard, Building2 } from "lucide-react"
 
 interface SelectedSlot {
   date: Date
@@ -54,9 +52,7 @@ export default function AgendarSesionPage() {
   const [modalidad, setModalidad] = useState("virtual")
   const [notas, setNotas] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [metodoPago, setMetodoPago] = useState<"tarjeta" | "transferencia">("tarjeta")
 
-  // Asesor data from Supabase via use-asesores hook
   const { asesor: asesorData, loading: asesorLoading } = useAsesor(params.id || "")
 
   const asesor = {
@@ -69,7 +65,6 @@ export default function AgendarSesionPage() {
     avatar: asesorData?.avatar_url || "/placeholder.svg",
   }
 
-  // Generate availability for next 30 days (Mon-Fri with random slots)
   const disponibilidadPorFecha: { [key: string]: string[] } = (() => {
     const slots: { [key: string]: string[] } = {}
     const allSlots = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"]
@@ -79,9 +74,7 @@ export default function AgendarSesionPage() {
       const date = new Date(today)
       date.setDate(today.getDate() + i)
       const dayOfWeek = date.getDay()
-      // Only weekdays (Mon-Fri)
       if (dayOfWeek === 0 || dayOfWeek === 6) continue
-      // Use asesor id to create deterministic but varied availability
       const seed = (date.getDate() + date.getMonth() + i) % 4
       const available = allSlots.filter((_, idx) => (idx + seed) % 2 === 0)
       if (available.length > 0) {
@@ -98,7 +91,6 @@ export default function AgendarSesionPage() {
     const lastDay = new Date(year, month + 1, 0)
     const daysInMonth = lastDay.getDate()
     const startingDayOfWeek = firstDay.getDay()
-
     return { daysInMonth, startingDayOfWeek }
   }
 
@@ -119,9 +111,7 @@ export default function AgendarSesionPage() {
 
   const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
 
-  const getDateString = (date: Date) => {
-    return date.toISOString().split("T")[0]
-  }
+  const getDateString = (date: Date) => date.toISOString().split("T")[0]
 
   const getDisponibilidadForDate = (date: Date) => {
     const dateString = getDateString(date)
@@ -136,7 +126,6 @@ export default function AgendarSesionPage() {
   const toggleSlot = (date: Date, time: string) => {
     const dateString = getDateString(date)
     const exists = selectedSlots.some((slot) => slot.dateString === dateString && slot.time === time)
-
     if (exists) {
       setSelectedSlots(selectedSlots.filter((slot) => !(slot.dateString === dateString && slot.time === time)))
     } else {
@@ -148,26 +137,22 @@ export default function AgendarSesionPage() {
     setSelectedSlots(selectedSlots.filter((slot) => !(slot.dateString === dateString && slot.time === time)))
   }
 
-  const formatDate = (date: Date) => {
-    return `${date.getDate()} de ${monthNames[date.getMonth()]}`
-  }
+  const formatDate = (date: Date) => `${date.getDate()} de ${monthNames[date.getMonth()]}`
 
   const handleConfirmBooking = async () => {
     if (selectedSlots.length === 0 || !asesorData) return
     setIsLoading(true)
 
     try {
-      // Only book the first selected slot (one booking per checkout flow)
       const slot = selectedSlots.sort(
         (a, b) => new Date(a.dateString).getTime() - new Date(b.dateString).getTime()
       )[0]
 
-      // Build ISO scheduledAt from date + time
       const [hour, minute] = slot.time.split(":").map(Number)
       const scheduledDate = new Date(slot.date)
       scheduledDate.setHours(hour, minute, 0, 0)
 
-      const bookingParams = {
+      const { bookingId } = await createBooking({
         advisorId: params.id!,
         advisorName: asesor.nombre,
         scheduledAt: scheduledDate.toISOString(),
@@ -176,30 +161,22 @@ export default function AgendarSesionPage() {
         notes: notas || undefined,
         subject: asesor.especialidades[0] || undefined,
         pricePerHour: asesor.precio,
-      }
+      })
 
-      if (metodoPago === "transferencia") {
-        // Flujo de transferencia bancaria
-        const { bookingId, transferId } = await initBankTransfer(bookingParams)
-        router.push(`/pago/transferencia/${bookingId}?transferId=${transferId}`)
-      } else {
-        // Flujo de tarjeta — redirige a Stripe Checkout
-        const { checkoutUrl } = await createBooking(bookingParams)
-        window.location.href = checkoutUrl
-      }
+      toast.success("Sesion agendada correctamente")
+      router.push(`/mis-sesiones`)
     } catch (error: any) {
       toast.error(error?.message || "Error al crear la reserva. Intenta de nuevo.")
+    } finally {
       setIsLoading(false)
     }
   }
 
   const totalCost = selectedSlots.length * asesor.precio
-
   const [selectedDateForSlots, setSelectedDateForSlots] = useState<Date | null>(null)
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
@@ -216,13 +193,11 @@ export default function AgendarSesionPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
-          {/* Page Title */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Agendar Sesión</h1>
-            <p className="text-gray-600">Selecciona los horarios disponibles para tu asesoría</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Agendar Sesion</h1>
+            <p className="text-gray-600">Selecciona los horarios disponibles para tu asesoria</p>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
@@ -273,10 +248,9 @@ export default function AgendarSesionPage() {
                       </Button>
                     </div>
                   </div>
-                  <CardDescription>Haz clic en un día para ver los horarios disponibles</CardDescription>
+                  <CardDescription>Haz clic en un dia para ver los horarios disponibles</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* Day names */}
                   <div className="grid grid-cols-7 gap-2 mb-2">
                     {dayNames.map((day) => (
                       <div key={day} className="text-center text-sm font-semibold text-gray-600 py-2">
@@ -285,7 +259,6 @@ export default function AgendarSesionPage() {
                     ))}
                   </div>
 
-                  {/* Calendar grid */}
                   <div className="grid grid-cols-7 gap-2">
                     {Array.from({ length: startingDayOfWeek }).map((_, index) => (
                       <div key={`empty-${index}`} className="aspect-square" />
@@ -336,7 +309,6 @@ export default function AgendarSesionPage() {
                     })}
                   </div>
 
-                  {/* Legend */}
                   <div className="flex items-center gap-6 mt-6 pt-4 border-t border-gray-200">
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 rounded bg-green-50 border border-green-300" />
@@ -387,23 +359,22 @@ export default function AgendarSesionPage() {
               )}
             </div>
 
-            {/* Sidebar - Selected Slots & Booking */}
+            {/* Sidebar */}
             <div className="space-y-6">
-              {/* Selected Slots */}
               <Card className="border-gray-200 sticky top-24">
                 <CardHeader>
                   <CardTitle className="text-gray-900">Sesiones Seleccionadas</CardTitle>
                   <CardDescription>
-                    {selectedSlots.length === 0 
-                      ? "Selecciona horarios en el calendario" 
-                      : `${selectedSlots.length} sesión${selectedSlots.length > 1 ? "es" : ""} seleccionada${selectedSlots.length > 1 ? "s" : ""}`}
+                    {selectedSlots.length === 0
+                      ? "Selecciona horarios en el calendario"
+                      : `${selectedSlots.length} sesion${selectedSlots.length > 1 ? "es" : ""} seleccionada${selectedSlots.length > 1 ? "s" : ""}`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {selectedSlots.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                      <p className="text-sm">Haz clic en un día verde y selecciona las horas que prefieras</p>
+                      <p className="text-sm">Haz clic en un dia verde y selecciona las horas que prefieras</p>
                     </div>
                   ) : (
                     <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -459,14 +430,13 @@ export default function AgendarSesionPage() {
                 </CardContent>
               </Card>
 
-              {/* Tips */}
               <Card className="border-gray-200 bg-red-50">
                 <CardContent className="p-6">
-                  <h4 className="font-semibold text-gray-900 mb-3">Tips para tu sesión</h4>
+                  <h4 className="font-semibold text-gray-900 mb-3">Tips para tu sesion</h4>
                   <ul className="space-y-2 text-sm text-gray-700">
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>Prepara tus dudas con anticipación</span>
+                      <span>Prepara tus dudas con anticipacion</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
@@ -474,7 +444,7 @@ export default function AgendarSesionPage() {
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>Conéctate 5 min antes si es virtual</span>
+                      <span>Conectate 5 min antes si es virtual</span>
                     </li>
                   </ul>
                 </CardContent>
@@ -490,7 +460,7 @@ export default function AgendarSesionPage() {
           <DialogHeader>
             <DialogTitle className="text-gray-900">Confirmar Agendamiento</DialogTitle>
             <DialogDescription>
-              Estás a punto de agendar {selectedSlots.length} sesión{selectedSlots.length > 1 ? "es" : ""} con {asesor.nombre}
+              Estas a punto de agendar {selectedSlots.length} sesion{selectedSlots.length > 1 ? "es" : ""} con {asesor.nombre}
             </DialogDescription>
           </DialogHeader>
 
@@ -509,7 +479,7 @@ export default function AgendarSesionPage() {
 
             {/* Modalidad Selection */}
             <div className="space-y-3">
-              <Label className="text-gray-900">Modalidad de la sesión</Label>
+              <Label className="text-gray-900">Modalidad de la sesion</Label>
               <RadioGroup value={modalidad} onValueChange={setModalidad} className="grid grid-cols-2 gap-3">
                 <Label
                   htmlFor="virtual"
@@ -543,7 +513,7 @@ export default function AgendarSesionPage() {
               <Label htmlFor="notas" className="text-gray-900">Notas para el asesor (opcional)</Label>
               <Textarea
                 id="notas"
-                placeholder="Temas que quieres repasar, dudas específicas..."
+                placeholder="Temas que quieres repasar, dudas especificas..."
                 value={notas}
                 onChange={(e) => setNotas(e.target.value)}
                 className="border-gray-300 resize-none"
@@ -551,55 +521,9 @@ export default function AgendarSesionPage() {
               />
             </div>
 
-            {/* Payment Method */}
-            <div className="space-y-3">
-              <Label className="text-gray-900">Método de pago</Label>
-              <RadioGroup
-                value={metodoPago}
-                onValueChange={(v) => setMetodoPago(v as "tarjeta" | "transferencia")}
-                className="grid grid-cols-2 gap-3"
-              >
-                <Label
-                  htmlFor="tarjeta"
-                  className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
-                    metodoPago === "tarjeta" ? "border-red-600 bg-red-50" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <RadioGroupItem value="tarjeta" id="tarjeta" className="border-gray-300" />
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-gray-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Tarjeta</p>
-                      <p className="text-xs text-gray-500">Débito / Crédito</p>
-                    </div>
-                  </div>
-                </Label>
-                <Label
-                  htmlFor="transferencia"
-                  className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
-                    metodoPago === "transferencia" ? "border-red-600 bg-red-50" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <RadioGroupItem value="transferencia" id="transferencia" className="border-gray-300" />
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-gray-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Transferencia</p>
-                      <p className="text-xs text-gray-500">Bancaria (SEPA)</p>
-                    </div>
-                  </div>
-                </Label>
-              </RadioGroup>
-              {metodoPago === "transferencia" && (
-                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  Recibirás los datos bancarios para realizar la transferencia. La reserva se confirmará una vez validado el comprobante.
-                </p>
-              )}
-            </div>
-
             {/* Total */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-              <span className="text-lg font-semibold text-gray-900">Total a pagar</span>
+              <span className="text-lg font-semibold text-gray-900">Total</span>
               <span className="text-2xl font-bold text-red-600">
                 {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(totalCost)}
               </span>
@@ -607,23 +531,23 @@ export default function AgendarSesionPage() {
           </div>
 
           <DialogFooter className="gap-3 sm:gap-0">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsConfirmDialogOpen(false)}
               className="border-gray-300 bg-transparent"
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={handleConfirmBooking}
               disabled={isLoading}
             >
               {isLoading ? (
-                <>
-                  <span className="animate-spin mr-2">⏳</span>
+                <span className="flex items-center gap-2">
+                  <span className="animate-spin">&#9203;</span>
                   Procesando...
-                </>
+                </span>
               ) : (
                 <>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
