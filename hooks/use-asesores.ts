@@ -40,6 +40,8 @@ export function useAsesores() {
       const supabase = createClient()
       
       try {
+        console.log("[v0] Fetching asesores...")
+        
         // Try to fetch from profiles table where role is 'asesor'
         const { data, error: fetchError } = await supabase
           .from("profiles")
@@ -47,33 +49,42 @@ export function useAsesores() {
           .eq("role", "asesor")
           .order("created_at", { ascending: false })
 
+        console.log("[v0] Fetch result - error:", fetchError, "data:", data)
+
         if (fetchError) {
-          console.log("[v0] Error fetching asesores:", fetchError.message)
+          console.error("[v0] Error fetching asesores:", fetchError.message)
           setError(fetchError.message)
+          setAsesores([])
+        } else if (!data) {
+          console.log("[v0] No data returned")
           setAsesores([])
         } else {
           // Map the data to our Asesor interface
-          const mappedAsesores: Asesor[] = (data || []).map((profile: any) => ({
-            id: profile.id,
-            nombre: profile.full_name || profile.nombre || "Sin nombre",
-            email: profile.email || "",
-            especialidades: profile.especialidades || [],
-            universidad: profile.universidad || "Sin universidad",
-            carrera: profile.carrera || "Sin carrera",
-            rating: profile.rating || 0,
-            sesiones_completadas: profile.sesiones_completadas || 0,
-            precio_por_hora: profile.precio_por_hora || 0,
-            modalidad: profile.modalidad || [],
-            disponibilidad: profile.disponibilidad || null,
-            descripcion: profile.bio || profile.descripcion || "",
-            avatar_url: profile.avatar_url,
-            created_at: profile.created_at,
-          }))
+          const mappedAsesores: Asesor[] = (data || []).map((profile: any) => {
+            console.log("[v0] Mapping profile:", profile.id, profile.full_name)
+            return {
+              id: profile.id,
+              nombre: profile.full_name || profile.nombre || "Sin nombre",
+              email: profile.email || "",
+              especialidades: Array.isArray(profile.especialidades) ? profile.especialidades : [],
+              universidad: profile.universidad || "Sin universidad",
+              carrera: profile.carrera || "Sin carrera",
+              rating: Number(profile.rating) || 0,
+              sesiones_completadas: Number(profile.sesiones_completadas) || 0,
+              precio_por_hora: Number(profile.precio_por_hora) || 0,
+              modalidad: Array.isArray(profile.modalidad) ? profile.modalidad : [],
+              disponibilidad: profile.disponibilidad || null,
+              descripcion: profile.bio || profile.descripcion || "",
+              avatar_url: profile.avatar_url || null,
+              created_at: profile.created_at,
+            }
+          })
+          console.log("[v0] Mapped asesores:", mappedAsesores.length)
           setAsesores(mappedAsesores)
         }
-      } catch (err) {
-        console.log("[v0] Exception fetching asesores:", err)
-        setError("Error al cargar asesores")
+      } catch (err: any) {
+        console.error("[v0] Exception fetching asesores:", err?.message || err)
+        setError(err?.message || "Error al cargar asesores")
         setAsesores([])
       } finally {
         setLoading(false)
@@ -101,6 +112,8 @@ export function useAsesor(id: string) {
       const supabase = createClient()
       
       try {
+        console.log("[v0] Fetching asesor:", id)
+        
         const { data, error: fetchError } = await supabase
           .from("profiles")
           .select("*")
@@ -108,8 +121,10 @@ export function useAsesor(id: string) {
           .eq("role", "asesor")
           .single()
 
+        console.log("[v0] Asesor fetch result - error:", fetchError, "data:", data)
+
         if (fetchError) {
-          console.log("[v0] Error fetching asesor:", fetchError.message)
+          console.error("[v0] Error fetching asesor:", fetchError.message)
           setError(fetchError.message)
           setAsesor(null)
         } else if (data) {
@@ -117,22 +132,23 @@ export function useAsesor(id: string) {
             id: data.id,
             nombre: data.full_name || data.nombre || "Sin nombre",
             email: data.email || "",
-            especialidades: data.especialidades || [],
+            especialidades: Array.isArray(data.especialidades) ? data.especialidades : [],
             universidad: data.universidad || "Sin universidad",
             carrera: data.carrera || "Sin carrera",
-            rating: data.rating || 0,
-            sesiones_completadas: data.sesiones_completadas || 0,
-            precio_por_hora: data.precio_por_hora || 0,
-            modalidad: data.modalidad || [],
+            rating: Number(data.rating) || 0,
+            sesiones_completadas: Number(data.sesiones_completadas) || 0,
+            precio_por_hora: Number(data.precio_por_hora) || 0,
+            modalidad: Array.isArray(data.modalidad) ? data.modalidad : [],
             disponibilidad: data.disponibilidad || null,
             descripcion: data.bio || data.descripcion || "",
-            avatar_url: data.avatar_url,
+            avatar_url: data.avatar_url || null,
             created_at: data.created_at,
           })
         }
-      } catch (err) {
-        console.log("[v0] Exception fetching asesor:", err)
-        setError("Error al cargar asesor")
+      } catch (err: any) {
+        console.error("[v0] Exception fetching asesor:", err?.message || err)
+        setError(err?.message || "Error al cargar asesor")
+        setAsesor(null)
       } finally {
         setLoading(false)
       }
