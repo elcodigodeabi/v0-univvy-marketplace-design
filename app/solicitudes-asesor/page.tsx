@@ -14,7 +14,7 @@ import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft, MessageS
 import { UserMenu } from "@/components/user-menu"
 import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase/client"
-import { acceptBookingRequest, rejectBookingRequest } from "@/app/actions/advisor"
+import { acceptBookingRequest, rejectBookingRequest, getMyAdvisorBookings } from "@/app/actions/bookings"
 import { toast } from "sonner"
 
 interface Request {
@@ -59,21 +59,17 @@ export default function SolicitudesAsesorPage() {
 
       try {
         // Fetch pending requests
-        const { data: pending } = await supabase
-          .from("bookings")
-          .select("*")
-          .eq("advisor_id", user.id)
-          .eq("status", "pending_payment")
-          .order("created_at", { ascending: false })
+        const bookings = await getMyAdvisorBookings()
+        const pending = bookings.filter((b: any) => b.status === "pending_request")
 
-        if (pending) {
+        if (pending && pending.length > 0) {
           setSolicitudesPendientes(
             pending.map((s: any) => ({
               id: s.id,
               student_id: s.student_id,
-              student_nombre: s.student_name || "Estudiante",
-              universidad: "Universidad",
-              carrera: "Carrera",
+              student_nombre: s.student?.full_name || s.student_name || "Estudiante",
+              universidad: s.student?.universidad || "Universidad",
+              carrera: s.student?.carrera || "Carrera",
               materia: s.subject || "Asesoría",
               fecha: new Date(s.scheduled_at).toLocaleDateString("es-ES"),
               hora: new Date(s.scheduled_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
@@ -157,17 +153,17 @@ export default function SolicitudesAsesorPage() {
   const handleAccept = async (solicitud: Request) => {
     setProcessingId(solicitud.id)
     try {
-      const result = await acceptBookingRequest(solicitud.id)
-      if (result.success) {
-        toast.success("Solicitud aceptada correctamente")
-        // Move from pending to accepted
-        setSolicitudesPendientes((prev) => prev.filter((s) => s.id !== solicitud.id))
-        setSolicitudesAceptadas((prev) => [{ ...solicitud, estado: "confirmed" }, ...prev])
-      } else {
-        toast.error(result.error || "Error al aceptar la solicitud")
+      const { chatId } = await acceptBookingRequest(solicitud.id)
+      toast.success("Solicitud aceptada. Abriendo chat...")
+      // Move from pending to accepted
+      setSolicitudesPendientes((prev) => prev.filter((s) => s.id !== solicitud.id))
+      setSolicitudesAceptadas((prev) => [{ ...solicitud, estado: "confirmed" }, ...prev])
+      // Redirect to chat after a brief moment
+      if (chatId) {
+        setTimeout(() => window.location.href = `/mensajes/${chatId}`, 1000)
       }
-    } catch (err) {
-      toast.error("Error al procesar la solicitud")
+    } catch (err: any) {
+      toast.error(err?.message || "Error al procesar la solicitud")
     } finally {
       setProcessingId(null)
     }
@@ -186,20 +182,16 @@ export default function SolicitudesAsesorPage() {
     setRejectDialogOpen(false)
     
     try {
-      const result = await rejectBookingRequest(selectedRequest.id, rejectReason || undefined)
-      if (result.success) {
-        toast.success("Solicitud rechazada")
-        // Move from pending to rejected
-        setSolicitudesPendientes((prev) => prev.filter((s) => s.id !== selectedRequest.id))
-        setSolicitudesRechazadas((prev) => [
-          { ...selectedRequest, estado: "rejected", motivo_rechazo: rejectReason },
-          ...prev,
-        ])
-      } else {
-        toast.error(result.error || "Error al rechazar la solicitud")
-      }
-    } catch (err) {
-      toast.error("Error al procesar la solicitud")
+      await rejectBookingRequest(selectedRequest.id, rejectReason || undefined)
+      toast.success("Solicitud rechazada. El estudiante ha sido notificado.")
+      // Move from pending to rejected
+      setSolicitudesPendientes((prev) => prev.filter((s) => s.id !== selectedRequest.id))
+      setSolicitudesRechazadas((prev) => [
+        { ...selectedRequest, estado: "rejected", motivo_rechazo: rejectReason },
+        ...prev,
+      ])
+    } catch (err: any) {
+      toast.error(err?.message || "Error al procesar la solicitud")
     } finally {
       setProcessingId(null)
       setSelectedRequest(null)
