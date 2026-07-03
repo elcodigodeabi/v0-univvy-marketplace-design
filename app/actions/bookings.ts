@@ -24,69 +24,74 @@ export async function createBooking(params: {
   subject?: string
   pricePerHour: number
 }) {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) throw new Error("No autenticado")
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) throw new Error("No autenticado")
 
-  const { data: studentProfile } = await supabase
-    .from("profiles")
-    .select("full_name, email")
-    .eq("id", user.id)
-    .single()
+    const { data: studentProfile } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", user.id)
+      .single()
 
-  const { advisorAmountCents, platformFeeCents, totalCents } = calculatePricing(
-    params.pricePerHour,
-    params.durationMinutes
-  )
+    const { advisorAmountCents, platformFeeCents, totalCents } = calculatePricing(
+      params.pricePerHour,
+      params.durationMinutes
+    )
 
-  const scheduledDate = new Date(params.scheduledAt)
-  const autoReleaseAt = new Date(
-    scheduledDate.getTime() + params.durationMinutes * 60 * 1000 + AUTO_RELEASE_HOURS * 60 * 60 * 1000
-  )
+    const scheduledDate = new Date(params.scheduledAt)
+    const autoReleaseAt = new Date(
+      scheduledDate.getTime() + params.durationMinutes * 60 * 1000 + AUTO_RELEASE_HOURS * 60 * 60 * 1000
+    )
 
-  const title = params.subject ? `Asesoría: ${params.subject}` : "Asesoría"
+    const title = params.subject ? `Asesoría: ${params.subject}` : "Asesoría"
 
-  const { data: booking, error: bookingError } = await supabase
-    .from("bookings")
-    .insert({
-      student_id: user.id,
-      advisor_id: params.advisorId,
-      title,
-      subject: params.subject,
-      notes: params.notes,
-      scheduled_at: params.scheduledAt,
-      duration_minutes: params.durationMinutes,
-      modalidad: params.modalidad,
-      price: totalCents,
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .insert({
+        student_id: user.id,
+        advisor_id: params.advisorId,
+        title,
+        subject: params.subject,
+        notes: params.notes,
+        scheduled_at: params.scheduledAt,
+        duration_minutes: params.durationMinutes,
+        modalidad: params.modalidad,
+        price: totalCents,
+        platform_fee: platformFeeCents,
+        advisor_amount: advisorAmountCents,
+        currency: "EUR",
+        status: "pending_request",
+        auto_release_at: autoReleaseAt.toISOString(),
+        advisor_name: params.advisorName,
+        student_name: studentProfile?.full_name || user.email?.split("@")[0] || "Estudiante",
+      })
+      .select()
+      .single()
+
+    if (bookingError || !booking) {
+      throw new Error("Error al crear la reserva")
+    }
+
+    // Insert payment record as pending
+    await supabase.from("payments").insert({
+      booking_id: booking.id,
+      payer_id: booking.student_id,
+      payee_id: booking.advisor_id,
+      amount: totalCents,
       platform_fee: platformFeeCents,
       advisor_amount: advisorAmountCents,
       currency: "EUR",
-      status: "pending_request",
-      auto_release_at: autoReleaseAt.toISOString(),
-      advisor_name: params.advisorName,
-      student_name: studentProfile?.full_name || user.email?.split("@")[0] || "Estudiante",
+      status: "pending",
     })
-    .select()
-    .single()
 
-  if (bookingError || !booking) {
-    throw new Error("Error al crear la reserva")
+    revalidatePath("/mis-sesiones")
+    return { bookingId: booking.id }
+  } catch (error: any) {
+    console.error("[v0] Error creating booking:", error)
+    throw new Error(error?.message || "Error al crear la reserva. Intenta de nuevo.")
   }
-
-  // Insert payment record as pending
-  await supabase.from("payments").insert({
-    booking_id: booking.id,
-    payer_id: booking.student_id,
-    payee_id: booking.advisor_id,
-    amount: totalCents,
-    platform_fee: platformFeeCents,
-    advisor_amount: advisorAmountCents,
-    currency: "EUR",
-    status: "pending",
-  })
-
-  revalidatePath("/mis-sesiones")
-  return { bookingId: booking.id }
 }
 
 // ─── Student confirms session occurred ────────────────────────────────────
@@ -255,75 +260,85 @@ export async function getMyAdvisorBookings() {
 
 // ─── Advisor accepts a booking request ────────────────────────────────────
 export async function acceptBookingRequest(bookingId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("No autenticado")
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("No autenticado")
 
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("id", bookingId)
-    .eq("advisor_id", user.id)
-    .single()
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .eq("advisor_id", user.id)
+      .single()
 
-  if (!booking) throw new Error("Solicitud no encontrada")
-  if (booking.status !== "pending_request") throw new Error("Esta solicitud ya fue procesada")
+    if (!booking) throw new Error("Solicitud no encontrada")
+    if (booking.status !== "pending_request") throw new Error("Esta solicitud ya fue procesada")
 
-  // Create a chat for this booking
-  const { data: chat } = await supabase
-    .from("chats")
-    .insert({
-      student_id: booking.student_id,
-      advisor_id: booking.advisor_id,
-      booking_id: bookingId,
-      title: booking.title || "Chat de asesoría",
-    })
-    .select()
-    .single()
+    // Create a chat for this booking
+    const { data: chat } = await supabase
+      .from("chats")
+      .insert({
+        student_id: booking.student_id,
+        advisor_id: booking.advisor_id,
+        booking_id: bookingId,
+        title: booking.title || "Chat de asesoría",
+      })
+      .select()
+      .single()
 
-  // Update booking status to confirmed
-  await supabase
-    .from("bookings")
-    .update({ status: "confirmed" })
-    .eq("id", bookingId)
+    // Update booking status to confirmed
+    await supabase
+      .from("bookings")
+      .update({ status: "confirmed" })
+      .eq("id", bookingId)
 
-  revalidatePath("/solicitudes-asesor")
-  revalidatePath("/mis-sesiones-asesor")
-  return { chatId: chat?.id }
+    revalidatePath("/solicitudes-asesor")
+    revalidatePath("/mis-sesiones-asesor")
+    return { chatId: chat?.id }
+  } catch (error: any) {
+    console.error("[v0] Error accepting booking:", error)
+    throw new Error(error?.message || "Error al aceptar la solicitud")
+  }
 }
 
 // ─── Advisor rejects a booking request ────────────────────────────────────
 export async function rejectBookingRequest(bookingId: string, reason?: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("No autenticado")
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("No autenticado")
 
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("id", bookingId)
-    .eq("advisor_id", user.id)
-    .single()
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .eq("advisor_id", user.id)
+      .single()
 
-  if (!booking) throw new Error("Solicitud no encontrada")
-  if (booking.status !== "pending_request") throw new Error("Esta solicitud ya fue procesada")
+    if (!booking) throw new Error("Solicitud no encontrada")
+    if (booking.status !== "pending_request") throw new Error("Esta solicitud ya fue procesada")
 
-  // Update booking status to rejected
-  await supabase
-    .from("bookings")
-    .update({
-      status: "rejected",
-      rejected_at: new Date().toISOString(),
-      rejection_reason: reason || "El asesor no está disponible en este momento",
-    })
-    .eq("id", bookingId)
+    // Update booking status to rejected
+    await supabase
+      .from("bookings")
+      .update({
+        status: "rejected",
+        rejected_at: new Date().toISOString(),
+        rejection_reason: reason || "El asesor no está disponible en este momento",
+      })
+      .eq("id", bookingId)
 
-  // Refund payment if exists
-  await supabase
-    .from("payments")
-    .update({ status: "refunded", refunded_at: new Date().toISOString() })
-    .eq("booking_id", bookingId)
+    // Refund payment if exists
+    await supabase
+      .from("payments")
+      .update({ status: "refunded", refunded_at: new Date().toISOString() })
+      .eq("booking_id", bookingId)
 
-  revalidatePath("/solicitudes-asesor")
-  revalidatePath("/mis-sesiones")
+    revalidatePath("/solicitudes-asesor")
+    revalidatePath("/mis-sesiones")
+  } catch (error: any) {
+    console.error("[v0] Error rejecting booking:", error)
+    throw new Error(error?.message || "Error al rechazar la solicitud")
+  }
 }
