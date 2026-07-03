@@ -272,7 +272,11 @@ export default function AsesoresPage() {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Clock className="h-4 w-4 text-gray-400" />
-                        <span>{asesor.disponibilidad || "Disponibilidad flexible"}</span>
+                        <span>
+                          {asesor.disponibilidad && typeof asesor.disponibilidad === "object"
+                            ? "Disponibilidad flexible"
+                            : asesor.disponibilidad || "Disponibilidad flexible"}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <BookOpen className="h-4 w-4 text-gray-400" />
