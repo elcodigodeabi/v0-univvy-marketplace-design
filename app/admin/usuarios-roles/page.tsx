@@ -172,7 +172,7 @@ export default function UsuariosRolesPage() {
           <CardContent>
             {isLoading ? (
               <div className="flex justify-center py-8">
-                <Spinner />
+ <Loader2 className="h-5 w-5 animate-spin" />
               </div>
             ) : filteredUsers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-gray-500">
@@ -208,7 +208,7 @@ export default function UsuariosRolesPage() {
                             disabled={updatingId === user.id}
                           >
                             <SelectTrigger className="w-32">
-                              {updatingId === user.id ? <Spinner /> : <SelectValue />}
+                              {updatingId === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <SelectValue />}
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="alumno">Alumno</SelectItem>
