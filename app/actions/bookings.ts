@@ -61,7 +61,7 @@ export async function createBooking(params: {
       platform_fee: platformFeeCents,
       advisor_amount: advisorAmountCents,
       currency: "EUR",
-      status: "confirmed",
+      status: "pending_request",
       auto_release_at: autoReleaseAt.toISOString(),
       advisor_name: params.advisorName,
       student_name: studentProfile?.full_name || user.email?.split("@")[0] || "Estudiante",
@@ -251,4 +251,79 @@ export async function getMyAdvisorBookings() {
     .order("scheduled_at", { ascending: false })
 
   return data || []
+}
+
+// ─── Advisor accepts a booking request ────────────────────────────────────
+export async function acceptBookingRequest(bookingId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("No autenticado")
+
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .eq("advisor_id", user.id)
+    .single()
+
+  if (!booking) throw new Error("Solicitud no encontrada")
+  if (booking.status !== "pending_request") throw new Error("Esta solicitud ya fue procesada")
+
+  // Create a chat for this booking
+  const { data: chat } = await supabase
+    .from("chats")
+    .insert({
+      student_id: booking.student_id,
+      advisor_id: booking.advisor_id,
+      booking_id: bookingId,
+      title: booking.title || "Chat de asesoría",
+    })
+    .select()
+    .single()
+
+  // Update booking status to confirmed
+  await supabase
+    .from("bookings")
+    .update({ status: "confirmed" })
+    .eq("id", bookingId)
+
+  revalidatePath("/solicitudes-asesor")
+  revalidatePath("/mis-sesiones-asesor")
+  return { chatId: chat?.id }
+}
+
+// ─── Advisor rejects a booking request ────────────────────────────────────
+export async function rejectBookingRequest(bookingId: string, reason?: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("No autenticado")
+
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .eq("advisor_id", user.id)
+    .single()
+
+  if (!booking) throw new Error("Solicitud no encontrada")
+  if (booking.status !== "pending_request") throw new Error("Esta solicitud ya fue procesada")
+
+  // Update booking status to rejected
+  await supabase
+    .from("bookings")
+    .update({
+      status: "rejected",
+      rejected_at: new Date().toISOString(),
+      rejection_reason: reason || "El asesor no está disponible en este momento",
+    })
+    .eq("id", bookingId)
+
+  // Refund payment if exists
+  await supabase
+    .from("payments")
+    .update({ status: "refunded", refunded_at: new Date().toISOString() })
+    .eq("booking_id", bookingId)
+
+  revalidatePath("/solicitudes-asesor")
+  revalidatePath("/mis-sesiones")
 }

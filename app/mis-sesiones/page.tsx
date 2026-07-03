@@ -33,6 +33,11 @@ type Booking = Awaited<ReturnType<typeof getMyBookings>>[number]
 
 function getStatusBadge(status: string) {
   const map: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
+    pending_request: {
+      label: "Pendiente (Esperando respuesta del asesor)",
+      className: "bg-yellow-100 text-yellow-700 border-0",
+      icon: <AlertCircle className="h-3 w-3 mr-1" />,
+    },
     pending_payment: {
       label: "Pago pendiente",
       className: "bg-yellow-100 text-yellow-700 border-0",
