@@ -50,21 +50,24 @@ export default function DashboardPage() {
           .from("bookings")
           .select("*")
           .eq("student_id", user.id)
-          .gte("scheduled_date", new Date().toISOString().split("T")[0])
-          .order("scheduled_date", { ascending: true })
+          .gte("scheduled_at", new Date().toISOString())
+          .order("scheduled_at", { ascending: true })
           .limit(5)
 
         if (!error && data) {
-          setUpcomingSessions(data.map((s: any) => ({
-            id: s.id,
-            asesor_id: s.asesor_id,
-            asesor_nombre: s.asesor_nombre || "Asesor",
-            materia: s.subject || "Asesoría",
-            fecha: s.scheduled_date,
-            hora: s.scheduled_time,
-            tipo: s.modality || "Virtual",
-            estado: s.status,
-          })))
+          setUpcomingSessions(data.map((s: any) => {
+            const scheduledDate = s.scheduled_at ? new Date(s.scheduled_at) : null
+            return {
+              id: s.id,
+              asesor_id: s.advisor_id,
+              asesor_nombre: s.advisor_name || "Asesor",
+              materia: s.subject || "Asesoría",
+              fecha: scheduledDate ? scheduledDate.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : "",
+              hora: scheduledDate ? scheduledDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : "",
+              tipo: s.modalidad === "presencial" ? "Presencial" : "Virtual",
+              estado: s.status,
+            }
+          }))
         }
       } catch (err) {
         console.log("[v0] Error fetching sessions:", err)
