@@ -18,3 +18,42 @@ export const SITE_CONFIG = {
     instagram: 'https://instagram.com/univvy',
   },
 }
+
+// Catálogo académico oficial de la plataforma
+export const UNIVERSIDADES = ['Universidad de Navarra'] as const
+
+export const CARRERAS = [
+  'Grado en Administración y Dirección de Empresas / Bachelor in Business Administration (BBA)',
+] as const
+
+// Materias del Grado en ADE / BBA - Universidad de Navarra
+export const MATERIAS = [
+  'Análisis de Estados Financieros',
+  'Business Analytics',
+  'Comercio Internacional',
+  'Contabilidad de Costes',
+  'Contabilidad Financiera',
+  'Derecho Mercantil',
+  'Dirección Comercial',
+  'Dirección de Operaciones',
+  'Dirección de Personas',
+  'Dirección Estratégica',
+  'Dirección Financiera',
+  'Econometría',
+  'Economía de la Empresa',
+  'Economía Mundial',
+  'Estadística I',
+  'Estadística II',
+  'Ética Empresarial',
+  'Finanzas Corporativas',
+  'Fiscalidad de la Empresa',
+  'Historia Económica',
+  'Investigación de Mercados',
+  'Macroeconomía',
+  'Marketing',
+  'Matemáticas I',
+  'Matemáticas II',
+  'Matemáticas Financieras',
+  'Microeconomía',
+  'Sistemas de Información',
+] as const

@@ -25,6 +25,7 @@ import {
   LogOut,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { UNIVERSIDADES, CARRERAS } from "@/lib/constants"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "sonner"
 
@@ -296,29 +297,41 @@ export default function ProfilePage() {
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="universidad">Universidad</Label>
-                          <div className="relative">
-                            <GraduationCap className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                              id="universidad"
-                              value={profileData.universidad}
-                              disabled={!isEditing}
-                              onChange={(e) => setProfileData({ ...profileData, universidad: e.target.value })}
-                              className="pl-10 border-gray-300"
-                            />
-                          </div>
+                          <Select
+                            value={profileData.universidad}
+                            disabled={!isEditing}
+                            onValueChange={(value) => setProfileData({ ...profileData, universidad: value })}
+                          >
+                            <SelectTrigger id="universidad" className="w-full border-gray-300">
+                              <SelectValue placeholder="Selecciona tu universidad" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {UNIVERSIDADES.map((uni) => (
+                                <SelectItem key={uni} value={uni}>
+                                  {uni}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="carrera">Carrera</Label>
-                          <div className="relative">
-                            <BookOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                              id="carrera"
-                              value={profileData.carrera}
-                              disabled={!isEditing}
-                              onChange={(e) => setProfileData({ ...profileData, carrera: e.target.value })}
-                              className="pl-10 border-gray-300"
-                            />
-                          </div>
+                          <Select
+                            value={profileData.carrera}
+                            disabled={!isEditing}
+                            onValueChange={(value) => setProfileData({ ...profileData, carrera: value })}
+                          >
+                            <SelectTrigger id="carrera" className="w-full border-gray-300">
+                              <SelectValue placeholder="Selecciona tu carrera" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CARRERAS.map((c) => (
+                                <SelectItem key={c} value={c} className="whitespace-normal">
+                                  {c}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
 
