@@ -71,11 +71,15 @@ export async function createBooking(params: {
       .single()
 
     if (bookingError || !booking) {
-      throw new Error("Error al crear la reserva")
+      console.error("[v0] Booking insert error:", bookingError)
+      if (bookingError?.code === "23503") {
+        throw new Error("Este asesor no está disponible para reservas")
+      }
+      throw new Error(bookingError?.message || "Error al crear la reserva")
     }
 
     // Insert payment record as pending
-    await supabase.from("payments").insert({
+    const { error: paymentError } = await supabase.from("payments").insert({
       booking_id: booking.id,
       payer_id: booking.student_id,
       payee_id: booking.advisor_id,
@@ -85,6 +89,10 @@ export async function createBooking(params: {
       currency: "EUR",
       status: "pending",
     })
+
+    if (paymentError) {
+      console.error("[v0] Payment insert error:", paymentError)
+    }
 
     revalidatePath("/mis-sesiones")
     return { bookingId: booking.id }
@@ -276,16 +284,19 @@ export async function acceptBookingRequest(bookingId: string) {
     if (booking.status !== "pending_request") throw new Error("Esta solicitud ya fue procesada")
 
     // Create a chat for this booking
-    const { data: chat } = await supabase
+    const { data: chat, error: chatError } = await supabase
       .from("chats")
       .insert({
         student_id: booking.student_id,
         advisor_id: booking.advisor_id,
         booking_id: bookingId,
-        title: booking.title || "Chat de asesoría",
       })
       .select()
       .single()
+
+    if (chatError) {
+      console.error("[v0] Error creating chat:", chatError)
+    }
 
     // Update booking status to confirmed
     await supabase
