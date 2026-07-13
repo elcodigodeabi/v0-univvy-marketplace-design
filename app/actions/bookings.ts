@@ -29,11 +29,34 @@ export async function createBooking(params: {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error("No autenticado")
 
-    const { data: studentProfile } = await supabase
+    let { data: studentProfile } = await supabase
       .from("profiles")
       .select("full_name, email")
       .eq("id", user.id)
       .single()
+
+    // Safety net: ensure the student has a profile row (FK requirement)
+    if (!studentProfile) {
+      const { data: newProfile, error: profileError } = await supabase
+        .from("profiles")
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name:
+            (user.user_metadata?.full_name as string) ||
+            user.email?.split("@")[0] ||
+            "Estudiante",
+          role: "alumno",
+        })
+        .select("full_name, email")
+        .single()
+
+      if (profileError) {
+        console.error("[v0] Error creating student profile:", profileError)
+        throw new Error("No se pudo completar tu perfil. Vuelve a iniciar sesión e intenta de nuevo.")
+      }
+      studentProfile = newProfile
+    }
 
     const { advisorAmountCents, platformFeeCents, totalCents } = calculatePricing(
       params.pricePerHour,
@@ -73,7 +96,11 @@ export async function createBooking(params: {
     if (bookingError || !booking) {
       console.error("[v0] Booking insert error:", bookingError)
       if (bookingError?.code === "23503") {
-        throw new Error("Este asesor no está disponible para reservas")
+        // Foreign key violation: advisor_id doesn't reference a real profile
+        if (bookingError.message?.includes("advisor_id")) {
+          throw new Error("Este asesor no está disponible para reservas")
+        }
+        throw new Error("No se pudo crear la reserva. Verifica tu sesión e intenta de nuevo.")
       }
       throw new Error(bookingError?.message || "Error al crear la reserva")
     }
