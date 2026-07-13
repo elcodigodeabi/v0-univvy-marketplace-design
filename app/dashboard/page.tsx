@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -25,15 +26,44 @@ interface Session {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
   const { user } = useAuth()
   const { asesores, loading: loadingAsesores } = useAsesores()
   const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([])
   const [loadingSessions, setLoadingSessions] = useState(true)
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [roleCheckComplete, setRoleCheckComplete] = useState(false)
   const [stats, setStats] = useState({
     sesiones_completadas: 0,
     horas_asesoria: 0,
     asesores_contactados: 0,
   })
+
+  // Check user role and redirect if advisor
+  useEffect(() => {
+    async function checkRole() {
+      if (!user?.id) {
+        setRoleCheckComplete(true)
+        return
+      }
+
+      const supabase = createClient()
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single()
+
+      if (profile?.role === "asesor") {
+        router.push("/dashboard-asesor")
+        return
+      }
+      setUserRole(profile?.role || "alumno")
+      setRoleCheckComplete(true)
+    }
+
+    checkRole()
+  }, [user?.id, router])
 
   useEffect(() => {
     async function fetchSessions() {
@@ -81,6 +111,15 @@ export default function DashboardPage() {
 
   // Get up to 3 recommended asesores
   const recommendedAdvisors = asesores.slice(0, 3)
+
+  // Show loading while checking role (prevents flash of wrong UI)
+  if (!roleCheckComplete) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
