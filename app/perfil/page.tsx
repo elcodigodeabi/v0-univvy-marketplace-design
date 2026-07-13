@@ -27,6 +27,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UNIVERSIDADES, CARRERAS } from "@/lib/constants"
 import { useAuth } from "@/hooks/use-auth"
+import { AvatarUpload } from "@/components/avatar-upload"
 import { toast } from "sonner"
 
 export default function ProfilePage() {
@@ -50,6 +51,7 @@ export default function ProfilePage() {
     horarios: "Lunes a Viernes: 2pm - 8pm, Sábados: 10am - 2pm",
     experiencia: "3 años de experiencia como tutor académico",
   })
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   // Update profile data when user loads
   useEffect(() => {
@@ -61,6 +63,7 @@ export default function ProfilePage() {
         universidad: user.universidad || "",
         carrera: user.carrera || "",
       }))
+      setAvatarUrl(user.avatar_url || null)
     }
   }, [user])
 
@@ -110,20 +113,13 @@ export default function ProfilePage() {
               <Card className="border-gray-200">
                 <CardContent className="p-6">
                   <div className="flex flex-col items-center">
-                    <div className="relative mb-4">
-                      <Avatar className="h-32 w-32">
-                        <AvatarImage src={user?.avatar || "/placeholder.svg"} />
-                        <AvatarFallback className="bg-red-100 text-red-600 text-3xl">
-                          {user?.iniciales || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      {isEditing && (
-                        <Button
-                          size="icon"
-                          className="absolute bottom-0 right-0 h-10 w-10 rounded-full bg-red-600 hover:bg-red-700"
-                        >
-                          <Camera className="h-5 w-5 text-white" />
-                        </Button>
+                    <div className="mb-4">
+                      {user?.id && (
+                        <AvatarUpload
+                          currentAvatarUrl={avatarUrl}
+                          userId={user.id}
+                          onAvatarChange={setAvatarUrl}
+                        />
                       )}
                     </div>
                     <h2 className="text-xl font-bold text-gray-900 mb-1">{user?.nombre || "Usuario"}</h2>
