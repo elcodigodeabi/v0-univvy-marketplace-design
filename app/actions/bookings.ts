@@ -70,6 +70,32 @@ export async function createBooking(params: {
 
     const title = params.subject ? `Asesoría: ${params.subject}` : "Asesoría"
 
+    // ─── Validate no overlapping bookings for this student ───────────────────
+    const requestedStart = new Date(params.scheduledAt)
+    const requestedEnd = new Date(requestedStart.getTime() + params.durationMinutes * 60 * 1000)
+
+    const { data: conflictingBookings, error: conflictError } = await supabase
+      .from("bookings")
+      .select("id, scheduled_at, duration_minutes, status")
+      .eq("student_id", user.id)
+      .in("status", ["pending_request", "pending_payment", "confirmed", "in_progress"])
+
+    if (conflictError) {
+      console.error("[v0] Error checking booking conflicts:", conflictError)
+    } else if (conflictingBookings && conflictingBookings.length > 0) {
+      for (const existing of conflictingBookings) {
+        const existingStart = new Date(existing.scheduled_at)
+        const existingEnd = new Date(existingStart.getTime() + existing.duration_minutes * 60 * 1000)
+
+        // Check if time slots overlap
+        if (requestedStart < existingEnd && requestedEnd > existingStart) {
+          throw new Error(
+            `Ya tienes una sesión programada en ese horario. Por favor elige otro horario.`
+          )
+        }
+      }
+    }
+
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .insert({

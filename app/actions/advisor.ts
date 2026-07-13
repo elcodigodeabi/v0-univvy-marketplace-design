@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createChatForBooking } from "@/app/actions/chat"
 import { revalidatePath } from "next/cache"
 
 // Get advisor statistics for dashboard
@@ -307,6 +308,13 @@ export async function acceptBookingRequest(bookingId: string) {
       .eq("id", bookingId)
 
     if (updateError) throw updateError
+
+    // Create chat for this booking now that it's confirmed
+    const chatResult = await createChatForBooking(bookingId)
+    if (chatResult.error) {
+      console.error("[v0] Error creating chat for booking:", chatResult.error)
+      // Don't fail the entire request if chat creation fails, but log it
+    }
 
     // Create notification for student
     await supabase.from("notifications").insert({
