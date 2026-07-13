@@ -263,14 +263,16 @@ export default function DashboardAsesorPage() {
                           <div className="flex items-center gap-4">
                             <Avatar className="h-12 w-12">
                               <AvatarFallback className="bg-red-100 text-red-600">
-                                {solicitud.student_name
+                                {(solicitud.student?.full_name || "E")
                                   .split(" ")
                                   .map((n: string) => n[0])
                                   .join("")}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <h4 className="font-semibold text-gray-900">{solicitud.student_name}</h4>
+                              <h4 className="font-semibold text-gray-900">
+                                {solicitud.student?.full_name || "Estudiante"}
+                              </h4>
                               <p className="text-sm text-gray-600">{solicitud.subject || "Asesoría"}</p>
                               <div className="flex items-center gap-3 mt-1">
                                 <span className="text-xs text-gray-500 flex items-center gap-1">
@@ -336,14 +338,16 @@ export default function DashboardAsesorPage() {
                           <div className="flex items-center gap-4">
                             <Avatar className="h-12 w-12">
                               <AvatarFallback className="bg-red-100 text-red-600">
-                                {sesion.student_name
+                                {(sesion.student?.full_name || sesion.student_name || "E")
                                   .split(" ")
                                   .map((n: string) => n[0])
                                   .join("")}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <h4 className="font-semibold text-gray-900">{sesion.student_name}</h4>
+                              <h4 className="font-semibold text-gray-900">
+                                {sesion.student?.full_name || sesion.student_name || "Estudiante"}
+                              </h4>
                               <p className="text-sm text-gray-600">{sesion.subject || "Asesoría"}</p>
                               <div className="flex items-center gap-3 mt-1">
                                 <span className="text-xs text-gray-500 flex items-center gap-1">
@@ -364,7 +368,13 @@ export default function DashboardAsesorPage() {
                             <div className="text-right">
                               <p className="text-lg font-bold text-gray-900">€{(sesion.price / 100).toFixed(2)}</p>
                             </div>
-                            <Button size="sm" variant="outline" className="border-gray-300 bg-transparent">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="border-gray-300 bg-transparent"
+                              onClick={() => router.push(`/mensajes?chat=${sesion.id}`)}
+                              title="Ir al chat"
+                            >
                               <MessageSquare className="h-4 w-4" />
                             </Button>
                           </div>
