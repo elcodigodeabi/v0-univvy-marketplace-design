@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
           await supabase
             .from("payments")
-            .update({ status: "held" })
+            .update({ status: "in_escrow" })
             .eq("booking_id", bookingId)
         }
         break
