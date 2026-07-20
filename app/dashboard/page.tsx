@@ -174,7 +174,7 @@ export default function DashboardPage() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Bienvenido, {user?.nombre?.split(" ")[0] || "Usuario"}
+            Bienvenido, {user?.nombre?.split(" ")[0] || "Bienvenido"}
           </h1>
           <p className="text-gray-600">Encuentra el apoyo académico que necesitas</p>
         </div>
