@@ -1,0 +1,142 @@
+import { NextResponse } from "next/server"
+import { getStripe, splitAmount } from "@/lib/stripe"
+import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
+
+/**
+ * POST /api/transfers/release
+ * Body: { bookingId: string }
+ *
+ * Releases the escrowed funds to the advisor's Connect account once the
+ * class is confirmed as completed. Can be called:
+ * - by the student confirming the class (authenticated session), or
+ * - by a cron job with the CRON_SECRET bearer token (auto-release).
+ */
+export async function POST(request: Request) {
+  try {
+    const { bookingId } = await request.json()
+    if (!bookingId) {
+      return NextResponse.json({ error: "bookingId requerido" }, { status: 400 })
+    }
+
+    // ── Authorize: session user OR cron secret ────────────────────────────
+    const authHeader = request.headers.get("authorization")
+    const cronSecret = process.env.CRON_SECRET
+    const isCron =
+      cronSecret && authHeader === `Bearer ${cronSecret}`
+
+    let callerUserId: string | null = null
+    if (!isCron) {
+      const supabase = await createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        return NextResponse.json({ error: "No autenticado" }, { status: 401 })
+      }
+      callerUserId = user.id
+    }
+
+    // Service client: transfers must update rows regardless of RLS
+    const admin = createServiceClient()
+
+    const { data: booking, error: bookingError } = await admin
+      .from("bookings")
+      .select(
+        "id, student_id, advisor_id, price, status, stripe_payment_intent_id, stripe_transfer_id, transfer_released_at"
+      )
+      .eq("id", bookingId)
+      .single()
+
+    if (bookingError || !booking) {
+      return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 })
+    }
+
+    // Only the booking's student (or cron) may release funds
+    if (!isCron && callerUserId !== booking.student_id) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+    }
+
+    // Idempotency: already released
+    if (booking.stripe_transfer_id || booking.transfer_released_at) {
+      return NextResponse.json({
+        message: "Los fondos ya fueron liberados",
+        transferId: booking.stripe_transfer_id,
+      })
+    }
+
+    if (!booking.stripe_payment_intent_id) {
+      return NextResponse.json(
+        { error: "Esta reserva no tiene un pago asociado" },
+        { status: 409 }
+      )
+    }
+
+    // Verify the payment actually succeeded
+    const stripe = getStripe()
+    const pi = await stripe.paymentIntents.retrieve(booking.stripe_payment_intent_id)
+    if (pi.status !== "succeeded") {
+      return NextResponse.json(
+        { error: "El pago aún no se ha completado" },
+        { status: 409 }
+      )
+    }
+
+    // Advisor's Connect account
+    const { data: advisorProfile } = await admin
+      .from("profiles")
+      .select("stripe_account_id, stripe_onboarding_complete")
+      .eq("id", booking.advisor_id)
+      .single()
+
+    if (!advisorProfile?.stripe_account_id) {
+      return NextResponse.json(
+        { error: "El asesor no tiene cuenta de pagos configurada" },
+        { status: 409 }
+      )
+    }
+
+    // Net amount for the advisor (price is in cents)
+    const { advisorAmount } = splitAmount(booking.price)
+
+    // Get the charge id to link the transfer to the original payment
+    const latestCharge =
+      typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id
+
+    const transfer = await stripe.transfers.create({
+      amount: advisorAmount,
+      currency: "eur",
+      destination: advisorProfile.stripe_account_id,
+      source_transaction: latestCharge,
+      metadata: {
+        booking_id: booking.id,
+        advisor_id: booking.advisor_id,
+        student_id: booking.student_id,
+      },
+    })
+
+    const now = new Date().toISOString()
+
+    await admin
+      .from("bookings")
+      .update({
+        stripe_transfer_id: transfer.id,
+        transfer_released_at: now,
+        status: "completed",
+        escrow_released_at: now,
+      })
+      .eq("id", booking.id)
+
+    await admin
+      .from("payments")
+      .update({ stripe_transfer_id: transfer.id, status: "released" })
+      .eq("booking_id", booking.id)
+
+    return NextResponse.json({ transferId: transfer.id, amount: advisorAmount })
+  } catch (error) {
+    console.error("[v0] Transfer release error:", error)
+    const message = error instanceof Error ? error.message : "Error interno"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
