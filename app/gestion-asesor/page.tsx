@@ -25,9 +25,11 @@ import {
   GraduationCap,
 } from "lucide-react"
 import { UserMenu } from "@/components/user-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
 import { getAdvisorProfile, updateAdvisorAvailability, updateAdvisorProfile } from "@/app/actions/advisor"
+import { UNIVERSIDADES, CARRERAS, MATERIAS } from "@/lib/constants"
 
 export default function GestionAsesorPage() {
   const { user } = useAuth()
@@ -145,10 +147,10 @@ export default function GestionAsesorPage() {
   }
 
   const addEspecialidad = () => {
-    if (newEspecialidad.trim() && !especialidades.includes(newEspecialidad.trim())) {
-      setEspecialidades([...especialidades, newEspecialidad.trim()])
-      setNewEspecialidad("")
-    }
+  if (newEspecialidad && !especialidades.includes(newEspecialidad)) {
+  setEspecialidades([...especialidades, newEspecialidad])
+  setNewEspecialidad("")
+  }
   }
 
   const removeEspecialidad = (esp: string) => {
@@ -393,24 +395,32 @@ export default function GestionAsesorPage() {
 
                     {/* Agregar nueva especialidad */}
                     <div className="flex gap-2">
-                      <Input
-                        value={newEspecialidad}
-                        onChange={(e) => setNewEspecialidad(e.target.value)}
-                        placeholder="Ej: Cálculo, Física, Programación..."
-                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addEspecialidad())}
-                        className="flex-1"
-                      />
+                      <Select value={newEspecialidad} onValueChange={setNewEspecialidad}>
+                        <SelectTrigger className="flex-1 border-gray-300">
+                          <SelectValue placeholder="Selecciona una materia del BBA" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MATERIAS.filter((m) => !especialidades.includes(m)).map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Button
                         type="button"
                         variant="outline"
                         onClick={addEspecialidad}
+                        disabled={!newEspecialidad}
                         className="border-gray-300"
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Agregar
                       </Button>
                     </div>
-                    <p className="text-sm text-gray-500">Agrega las materias en las que puedes dar asesorías</p>
+                    <p className="text-sm text-gray-500">
+                      Elige entre las materias oficiales del Grado en ADE / BBA de la Universidad de Navarra
+                    </p>
                   </div>
 
                   <div className="pt-4">
@@ -450,23 +460,35 @@ export default function GestionAsesorPage() {
                   {/* Universidad */}
                   <div className="space-y-2">
                     <Label htmlFor="universidad">Universidad</Label>
-                    <Input
-                      id="universidad"
-                      value={universidad}
-                      onChange={(e) => setUniversidad(e.target.value)}
-                      placeholder="Ej: Universidad Nacional Mayor de San Marcos"
-                    />
+                    <Select value={universidad} onValueChange={setUniversidad}>
+                      <SelectTrigger id="universidad" className="w-full border-gray-300">
+                        <SelectValue placeholder="Selecciona tu universidad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {UNIVERSIDADES.map((uni) => (
+                          <SelectItem key={uni} value={uni}>
+                            {uni}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Carrera */}
                   <div className="space-y-2">
                     <Label htmlFor="carrera">Carrera</Label>
-                    <Input
-                      id="carrera"
-                      value={carrera}
-                      onChange={(e) => setCarrera(e.target.value)}
-                      placeholder="Ej: Ingeniería de Sistemas"
-                    />
+                    <Select value={carrera} onValueChange={setCarrera}>
+                      <SelectTrigger id="carrera" className="w-full border-gray-300">
+                        <SelectValue placeholder="Selecciona tu carrera" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CARRERAS.map((c) => (
+                          <SelectItem key={c} value={c} className="whitespace-normal">
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Bio */}

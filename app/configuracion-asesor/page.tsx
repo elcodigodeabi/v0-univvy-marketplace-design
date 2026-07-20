@@ -12,6 +12,7 @@ import { ArrowLeft, Plus, X, Save, DollarSign, BookOpen, Settings } from "lucide
 import { UserMenu } from "@/components/user-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { MATERIAS } from "@/lib/constants"
 
 export default function ConfiguracionAsesorPage() {
   const [materias, setMaterias] = useState([
@@ -129,12 +130,21 @@ export default function ConfiguracionAsesorPage() {
                         <div className="space-y-4">
                           <div className="space-y-2">
                             <Label>Nombre de la materia</Label>
-                            <Input
-                              placeholder="Ej: Cálculo Diferencial"
+                            <Select
                               value={newMateria.nombre}
-                              onChange={(e) => setNewMateria({ ...newMateria, nombre: e.target.value })}
-                              className="border-gray-300"
-                            />
+                              onValueChange={(value) => setNewMateria({ ...newMateria, nombre: value })}
+                            >
+                              <SelectTrigger className="w-full border-gray-300">
+                                <SelectValue placeholder="Selecciona una materia del BBA" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {MATERIAS.filter((m) => !materias.some((mat) => mat.nombre === m)).map((m) => (
+                                  <SelectItem key={m} value={m}>
+                                    {m}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">

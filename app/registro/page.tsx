@@ -9,8 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { UNIVERSIDADES, CARRERAS } from "@/lib/constants"
 
 export default function RegistroPage() {
   const router = useRouter()
@@ -39,6 +41,11 @@ export default function RegistroPage() {
 
     if (password.length < 8) {
       setError("La contraseña debe tener al menos 8 caracteres")
+      return
+    }
+
+    if (!universidad || !carrera) {
+      setError("Selecciona tu universidad y carrera")
       return
     }
 
@@ -169,32 +176,36 @@ export default function RegistroPage() {
                 <Label htmlFor="universidad" className="text-gray-900">
                   Universidad
                 </Label>
-                <Input
-                  id="universidad"
-                  type="text"
-                  placeholder="Universidad Nacional de Colombia"
-                  value={universidad}
-                  onChange={(e) => setUniversidad(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  className="border-gray-300"
-                />
+                <Select value={universidad} onValueChange={setUniversidad} disabled={isLoading} required>
+                  <SelectTrigger id="universidad" className="border-gray-300 w-full">
+                    <SelectValue placeholder="Selecciona tu universidad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UNIVERSIDADES.map((uni) => (
+                      <SelectItem key={uni} value={uni}>
+                        {uni}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="carrera" className="text-gray-900">
                   Carrera
                 </Label>
-                <Input
-                  id="carrera"
-                  type="text"
-                  placeholder="Ingeniería de Sistemas"
-                  value={carrera}
-                  onChange={(e) => setCarrera(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  className="border-gray-300"
-                />
+                <Select value={carrera} onValueChange={setCarrera} disabled={isLoading} required>
+                  <SelectTrigger id="carrera" className="border-gray-300 w-full">
+                    <SelectValue placeholder="Selecciona tu carrera" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CARRERAS.map((c) => (
+                      <SelectItem key={c} value={c} className="whitespace-normal">
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Password */}

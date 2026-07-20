@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createChatForBooking } from "@/app/actions/chat"
 import { revalidatePath } from "next/cache"
 
 // Get advisor statistics for dashboard
@@ -74,7 +75,6 @@ export async function getAdvisorSessions(
         `
         id,
         student_id,
-        student_name,
         title,
         subject,
         notes,
@@ -84,7 +84,8 @@ export async function getAdvisorSessions(
         status,
         price,
         advisor_amount,
-        created_at
+        created_at,
+        student:profiles!bookings_student_id_fkey(full_name, email)
       `
       )
       .eq("advisor_id", advisorId)
@@ -308,6 +309,13 @@ export async function acceptBookingRequest(bookingId: string) {
 
     if (updateError) throw updateError
 
+    // Create chat for this booking now that it's confirmed
+    const chatResult = await createChatForBooking(bookingId)
+    if (chatResult.error) {
+      console.error("[v0] Error creating chat for booking:", chatResult.error)
+      // Don't fail the entire request if chat creation fails, but log it
+    }
+
     // Create notification for student
     await supabase.from("notifications").insert({
       user_id: booking.student_id,
@@ -419,7 +427,6 @@ export async function getAdvisorPendingRequests(advisorId: string) {
         `
         id,
         student_id,
-        student_name,
         subject,
         notes,
         scheduled_at,
@@ -427,11 +434,12 @@ export async function getAdvisorPendingRequests(advisorId: string) {
         modalidad,
         status,
         price,
-        created_at
+        created_at,
+        student:profiles!bookings_student_id_fkey(full_name, email)
       `
       )
       .eq("advisor_id", advisorId)
-      .in("status", ["pending_payment", "pending_confirmation"])
+      .in("status", ["pending_request", "pending_payment"])
       .order("created_at", { ascending: false })
 
     if (error) throw error

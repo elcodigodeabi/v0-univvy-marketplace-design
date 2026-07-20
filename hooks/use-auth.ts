@@ -13,6 +13,7 @@ export interface AuthUser {
   carrera: string
   iniciales: string
   avatar?: string
+  avatar_url?: string
 }
 
 export function useAuth() {
@@ -22,18 +23,28 @@ export function useAuth() {
   useEffect(() => {
     const supabase = createClient()
 
+    async function loadUser(authUser: User) {
+      // Always read the real name from profiles — auth metadata only has the
+      // OAuth pseudonym (e.g. "spotifyvictoria") which is never what we want.
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, role, universidad, carrera, avatar_url")
+        .eq("id", authUser.id)
+        .single()
+
+      setUser(mapSupabaseUser(authUser, profile))
+    }
+
     // Get initial session
     const getUser = async () => {
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser()
-        
         if (authUser) {
-          // Use auth metadata directly - profiles table may not exist yet
-          setUser(mapSupabaseUser(authUser))
+          await loadUser(authUser)
         } else {
           setUser(null)
         }
-      } catch (err) {
+      } catch {
         setUser(null)
       } finally {
         setLoading(false)
@@ -42,11 +53,10 @@ export function useAuth() {
 
     getUser()
 
-    // Listen for auth changes
+    // Listen for auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        // Use auth metadata directly - profiles table may not exist yet
-        setUser(mapSupabaseUser(session.user))
+        await loadUser(session.user)
       } else {
         setUser(null)
       }
@@ -67,36 +77,50 @@ export function useAuth() {
   return { user, loading, signOut }
 }
 
-function mapSupabaseUser(authUser: User): AuthUser {
+function mapSupabaseUser(
+  authUser: User,
+  profile: { full_name?: string; role?: string; universidad?: string; carrera?: string; avatar_url?: string } | null
+): AuthUser {
   const metadata = authUser.user_metadata || {}
-  const nombre = metadata.nombre || authUser.email?.split("@")[0] || "Usuario"
-  
-  // Generate initials from name
-  const nameParts = nombre.split(" ")
-  const iniciales = nameParts.length >= 2
-    ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
-    : nombre.substring(0, 2).toUpperCase()
+
+  // Priority: profiles.full_name → auth metadata name fields → email prefix
+  const nombre =
+    profile?.full_name?.trim() ||
+    (metadata.full_name as string | undefined)?.trim() ||
+    (metadata.name as string | undefined)?.trim() ||
+    authUser.email?.split("@")[0] ||
+    "Usuario"
+
+  const nameParts = nombre.split(" ").filter(Boolean)
+  const iniciales =
+    nameParts.length >= 2
+      ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
+      : nombre.substring(0, 2).toUpperCase()
+
+  const tipo: "alumno" | "asesor" =
+    (profile?.role as "alumno" | "asesor") ||
+    (metadata.tipo as "alumno" | "asesor") ||
+    "alumno"
 
   return {
     id: authUser.id,
     email: authUser.email || "",
     nombre,
-    tipo: metadata.tipo || "alumno",
-    universidad: metadata.universidad || "",
-    carrera: metadata.carrera || "",
+    tipo,
+    universidad: profile?.universidad || (metadata.universidad as string) || "",
+    carrera: profile?.carrera || (metadata.carrera as string) || "",
     iniciales,
-    avatar: metadata.avatar,
+    avatar: profile?.avatar_url || (metadata.avatar as string) || undefined,
+    avatar_url: profile?.avatar_url || undefined,
   }
 }
 
 // Helper function to get user initials from name or email
 export function getInitials(nameOrEmail: string): string {
   if (!nameOrEmail) return "U"
-  
-  const parts = nameOrEmail.split(" ")
+  const parts = nameOrEmail.split(" ").filter(Boolean)
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
   }
-  
   return nameOrEmail.substring(0, 2).toUpperCase()
 }

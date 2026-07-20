@@ -1,15 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, MessageSquare, Clock, Lock, Loader2, BookOpen } from "lucide-react"
-import { getUserChats } from "@/app/actions/chat"
+import { getUserChats, getOrCreateChatByBooking } from "@/app/actions/chat"
 import { useAuth } from "@/hooks/use-auth"
+import { createClient } from "@/lib/supabase/client"
 
 interface Chat {
   id: string
@@ -31,22 +32,53 @@ function getStatus(chat: Chat): "upcoming" | "active" | "closed" {
   return "active"
 }
 
-export default function MensajesPage() {
+function MensajesContent() {
   const { user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const bookingParam = searchParams.get("chat")
   const [chats, setChats] = useState<Chat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string>("alumno")
+  const [dashboardLink, setDashboardLink] = useState("/dashboard")
+
+  // If arriving with ?chat={bookingId}, resolve the chat and open it directly
+  useEffect(() => {
+    async function openBookingChat() {
+      if (!bookingParam || !user?.id) return
+      const result = await getOrCreateChatByBooking(bookingParam)
+      if (result.chatId) {
+        router.replace(`/mensajes/${result.chatId}`)
+      }
+    }
+    openBookingChat()
+  }, [bookingParam, user?.id, router])
 
   useEffect(() => {
     async function load() {
+      if (!user?.id) return
+
+      // Get user role to determine correct dashboard link
+      const supabase = createClient()
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single()
+
+      if (profile?.role === "asesor") {
+        setDashboardLink("/dashboard-asesor")
+        setUserRole("asesor")
+      }
+
       const result = await getUserChats()
       if (result.error) setError(result.error)
       else setChats(result.chats as Chat[])
       setLoading(false)
     }
     load()
-  }, [])
+  }, [user?.id])
 
   const activeChats = chats.filter((c) => getStatus(c) === "active")
   const upcomingChats = chats.filter((c) => getStatus(c) === "upcoming")
@@ -56,11 +88,11 @@ export default function MensajesPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2 text-gray-700 hover:text-red-600">
+          <Link href={dashboardLink} className="flex items-center gap-2 text-gray-700 hover:text-red-600">
             <ArrowLeft className="h-5 w-5" />
             <span>Volver al Dashboard</span>
           </Link>
-          <Link href="/dashboard">
+          <Link href={dashboardLink}>
             <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto" />
           </Link>
         </div>
@@ -91,7 +123,9 @@ export default function MensajesPage() {
               Los chats se habilitan automáticamente cuando se confirma una sesión.
             </p>
             <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
-              <Link href="/buscar">Buscar asesores</Link>
+              <Link href={userRole === "asesor" ? "/solicitudes-asesor" : "/buscar"}>
+                {userRole === "asesor" ? "Ver Solicitudes" : "Buscar asesores"}
+              </Link>
             </Button>
           </Card>
         ) : (
@@ -138,6 +172,20 @@ export default function MensajesPage() {
   )
 }
 
+export default function MensajesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+        </div>
+      }
+    >
+      <MensajesContent />
+    </Suspense>
+  )
+}
+
 function ChatCard({
   chat,
   userId,
@@ -161,14 +209,14 @@ function ChatCard({
 
   return (
     <Card
-      className={`p-4 transition-shadow ${
+      className={`p-4 transition-shadow cursor-pointer hover:shadow-md ${
         status === "active"
-          ? "cursor-pointer hover:shadow-md border-green-200 bg-green-50/30"
+          ? "border-green-200 bg-green-50/30"
           : status === "upcoming"
           ? "border-amber-200 bg-amber-50/20"
           : "opacity-60"
       }`}
-      onClick={() => status === "active" && router.push(`/mensajes/${chat.id}`)}
+      onClick={() => router.push(`/mensajes/${chat.id}`)}
     >
       <div className="flex items-center gap-3">
         <Avatar className="h-11 w-11 shrink-0">
@@ -206,18 +254,19 @@ function ChatCard({
           <p className="text-xs text-gray-400 mt-0.5">{sessionDate}</p>
         </div>
 
-        {status === "active" && (
-          <Button
-            size="sm"
-            className="bg-red-600 hover:bg-red-700 text-white shrink-0 h-8 text-xs"
-            onClick={(e) => {
-              e.stopPropagation()
-              router.push(`/mensajes/${chat.id}`)
-            }}
-          >
-            Abrir
-          </Button>
-        )}
+        <Button
+          size="sm"
+          variant={status === "active" ? "default" : "outline"}
+          className={`shrink-0 h-8 text-xs ${
+            status === "active" ? "bg-red-600 hover:bg-red-700 text-white" : "border-gray-300 bg-transparent"
+          }`}
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/mensajes/${chat.id}`)
+          }}
+        >
+          {status === "active" ? "Abrir" : "Ver"}
+        </Button>
       </div>
     </Card>
   )

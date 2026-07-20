@@ -25,7 +25,9 @@ import {
   LogOut,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { UNIVERSIDADES, CARRERAS } from "@/lib/constants"
 import { useAuth } from "@/hooks/use-auth"
+import { AvatarUpload } from "@/components/avatar-upload"
 import { toast } from "sonner"
 
 export default function ProfilePage() {
@@ -49,6 +51,7 @@ export default function ProfilePage() {
     horarios: "Lunes a Viernes: 2pm - 8pm, Sábados: 10am - 2pm",
     experiencia: "3 años de experiencia como tutor académico",
   })
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   // Update profile data when user loads
   useEffect(() => {
@@ -60,6 +63,7 @@ export default function ProfilePage() {
         universidad: user.universidad || "",
         carrera: user.carrera || "",
       }))
+      setAvatarUrl(user.avatar_url || null)
     }
   }, [user])
 
@@ -109,20 +113,13 @@ export default function ProfilePage() {
               <Card className="border-gray-200">
                 <CardContent className="p-6">
                   <div className="flex flex-col items-center">
-                    <div className="relative mb-4">
-                      <Avatar className="h-32 w-32">
-                        <AvatarImage src={user?.avatar || "/placeholder.svg"} />
-                        <AvatarFallback className="bg-red-100 text-red-600 text-3xl">
-                          {user?.iniciales || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      {isEditing && (
-                        <Button
-                          size="icon"
-                          className="absolute bottom-0 right-0 h-10 w-10 rounded-full bg-red-600 hover:bg-red-700"
-                        >
-                          <Camera className="h-5 w-5 text-white" />
-                        </Button>
+                    <div className="mb-4">
+                      {user?.id && (
+                        <AvatarUpload
+                          currentAvatarUrl={avatarUrl}
+                          userId={user.id}
+                          onAvatarChange={setAvatarUrl}
+                        />
                       )}
                     </div>
                     <h2 className="text-xl font-bold text-gray-900 mb-1">{user?.nombre || "Usuario"}</h2>
@@ -296,29 +293,41 @@ export default function ProfilePage() {
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="universidad">Universidad</Label>
-                          <div className="relative">
-                            <GraduationCap className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                              id="universidad"
-                              value={profileData.universidad}
-                              disabled={!isEditing}
-                              onChange={(e) => setProfileData({ ...profileData, universidad: e.target.value })}
-                              className="pl-10 border-gray-300"
-                            />
-                          </div>
+                          <Select
+                            value={profileData.universidad}
+                            disabled={!isEditing}
+                            onValueChange={(value) => setProfileData({ ...profileData, universidad: value })}
+                          >
+                            <SelectTrigger id="universidad" className="w-full border-gray-300">
+                              <SelectValue placeholder="Selecciona tu universidad" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {UNIVERSIDADES.map((uni) => (
+                                <SelectItem key={uni} value={uni}>
+                                  {uni}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="carrera">Carrera</Label>
-                          <div className="relative">
-                            <BookOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                              id="carrera"
-                              value={profileData.carrera}
-                              disabled={!isEditing}
-                              onChange={(e) => setProfileData({ ...profileData, carrera: e.target.value })}
-                              className="pl-10 border-gray-300"
-                            />
-                          </div>
+                          <Select
+                            value={profileData.carrera}
+                            disabled={!isEditing}
+                            onValueChange={(value) => setProfileData({ ...profileData, carrera: value })}
+                          >
+                            <SelectTrigger id="carrera" className="w-full border-gray-300">
+                              <SelectValue placeholder="Selecciona tu carrera" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CARRERAS.map((c) => (
+                                <SelectItem key={c} value={c} className="whitespace-normal">
+                                  {c}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -38,10 +39,13 @@ interface UserProfile {
 }
 
 export default function DashboardAsesorPage() {
+  const router = useRouter()
   const { user } = useAuth()
   const [proximasSesiones, setProximasSesiones] = useState<any[]>([])
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [roleCheckComplete, setRoleCheckComplete] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [stats, setStats] = useState<Stats>({
     ganancias_mes: 0,
@@ -62,13 +66,23 @@ export default function DashboardAsesorPage() {
         const supabase = createClient()
         const { data: profile } = await supabase
           .from("profiles")
-          .select("full_name")
+          .select("full_name, role")
           .eq("id", user.id)
           .single()
         
         if (profile) {
           setUserProfile(profile)
+          setUserRole(profile.role)
+
+          // Redirect to student dashboard if not an advisor
+          // replace() so this page doesn't stay in history
+          if (profile.role !== "asesor") {
+            router.replace("/dashboard")
+            return
+          }
         }
+
+        setRoleCheckComplete(true)
 
         // Fetch stats
         const statsResult = await getAdvisorStats(user.id)
@@ -96,6 +110,15 @@ export default function DashboardAsesorPage() {
 
     fetchData()
   }, [user?.id])
+
+  // Show loading while checking role (prevents flash of wrong UI)
+  if (!roleCheckComplete) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -150,7 +173,7 @@ export default function DashboardAsesorPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Hola, {userProfile?.full_name || user?.user_metadata?.full_name || "Asesor"}
+            Hola, {user?.nombre?.split(" ")[0] || userProfile?.full_name?.split(" ")[0] || "Bienvenido"}
           </h1>
           <p className="text-gray-600">Gestiona tus sesiones y monitorea tu progreso</p>
         </div>
@@ -241,14 +264,16 @@ export default function DashboardAsesorPage() {
                           <div className="flex items-center gap-4">
                             <Avatar className="h-12 w-12">
                               <AvatarFallback className="bg-red-100 text-red-600">
-                                {solicitud.student_name
+                                {(solicitud.student?.full_name || "E")
                                   .split(" ")
                                   .map((n: string) => n[0])
                                   .join("")}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <h4 className="font-semibold text-gray-900">{solicitud.student_name}</h4>
+                              <h4 className="font-semibold text-gray-900">
+                                {solicitud.student?.full_name || "Estudiante"}
+                              </h4>
                               <p className="text-sm text-gray-600">{solicitud.subject || "Asesoría"}</p>
                               <div className="flex items-center gap-3 mt-1">
                                 <span className="text-xs text-gray-500 flex items-center gap-1">
@@ -314,14 +339,16 @@ export default function DashboardAsesorPage() {
                           <div className="flex items-center gap-4">
                             <Avatar className="h-12 w-12">
                               <AvatarFallback className="bg-red-100 text-red-600">
-                                {sesion.student_name
+                                {(sesion.student?.full_name || sesion.student_name || "E")
                                   .split(" ")
                                   .map((n: string) => n[0])
                                   .join("")}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <h4 className="font-semibold text-gray-900">{sesion.student_name}</h4>
+                              <h4 className="font-semibold text-gray-900">
+                                {sesion.student?.full_name || sesion.student_name || "Estudiante"}
+                              </h4>
                               <p className="text-sm text-gray-600">{sesion.subject || "Asesoría"}</p>
                               <div className="flex items-center gap-3 mt-1">
                                 <span className="text-xs text-gray-500 flex items-center gap-1">
@@ -342,7 +369,13 @@ export default function DashboardAsesorPage() {
                             <div className="text-right">
                               <p className="text-lg font-bold text-gray-900">€{(sesion.price / 100).toFixed(2)}</p>
                             </div>
-                            <Button size="sm" variant="outline" className="border-gray-300 bg-transparent">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="border-gray-300 bg-transparent"
+                              onClick={() => router.push(`/mensajes?chat=${sesion.id}`)}
+                              title="Ir al chat"
+                            >
                               <MessageSquare className="h-4 w-4" />
                             </Button>
                           </div>

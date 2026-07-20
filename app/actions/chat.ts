@@ -65,7 +65,9 @@ export async function getUserChats() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated', chats: [] }
 
-  const { data: chats, error } = await supabase
+  // Get chats where user is either student or advisor
+  // Query as student
+  const { data: studentChats, error: studentError } = await supabase
     .from('chats')
     .select(`
       id, booking_id, is_active, opens_at, closes_at, created_at,
@@ -73,11 +75,33 @@ export async function getUserChats() {
       advisor:profiles!chats_advisor_id_fkey(id, full_name, avatar_url),
       bookings(id, subject, scheduled_at, duration_minutes)
     `)
-    .or(`student_id.eq.${user.id},advisor_id.eq.${user.id}`)
+    .eq('student_id', user.id)
     .order('created_at', { ascending: false })
 
-  if (error) return { error: error.message, chats: [] }
-  return { chats: chats ?? [] }
+  // Query as advisor
+  const { data: advisorChats, error: advisorError } = await supabase
+    .from('chats')
+    .select(`
+      id, booking_id, is_active, opens_at, closes_at, created_at,
+      student:profiles!chats_student_id_fkey(id, full_name, avatar_url),
+      advisor:profiles!chats_advisor_id_fkey(id, full_name, avatar_url),
+      bookings(id, subject, scheduled_at, duration_minutes)
+    `)
+    .eq('advisor_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (studentError && advisorError) {
+    return { error: `Errors: ${studentError.message} | ${advisorError.message}`, chats: [] }
+  }
+
+  // Combine and deduplicate by ID
+  const allChats = [...(studentChats ?? []), ...(advisorChats ?? [])]
+  const uniqueChats = Array.from(
+    new Map(allChats.map((chat) => [chat.id, chat])).values()
+  )
+  uniqueChats.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  return { chats: uniqueChats }
 }
 
 /** Get a single chat with its messages */

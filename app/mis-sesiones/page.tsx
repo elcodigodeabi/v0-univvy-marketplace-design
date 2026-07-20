@@ -24,6 +24,7 @@ import {
   ThumbsDown,
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
+import { useRoleGuard } from "@/hooks/use-role-guard"
 import { getMyBookings, studentConfirmSession } from "@/app/actions/bookings"
 import { getOrCreateChatByBooking } from "@/app/actions/chat"
 import { useRouter } from "next/navigation"
@@ -90,6 +91,7 @@ function isSessionPast(scheduledAt: string) {
 export default function MisSesionesPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const { authorized, checking } = useRoleGuard("alumno")
   const [activeTab, setActiveTab] = useState("proximas")
   const [loading, setLoading] = useState(true)
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -281,7 +283,8 @@ export default function MisSesionesPage() {
     )
   }
 
-  if (loading) {
+  // Role guard: this page is student-only. Advisors get redirected.
+  if (checking || !authorized || loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white border-b border-gray-200">
