@@ -1,14 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, MessageSquare, Clock, Lock, Loader2, BookOpen } from "lucide-react"
-import { getUserChats } from "@/app/actions/chat"
+import { getUserChats, getOrCreateChatByBooking } from "@/app/actions/chat"
 import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase/client"
 
@@ -32,14 +32,28 @@ function getStatus(chat: Chat): "upcoming" | "active" | "closed" {
   return "active"
 }
 
-export default function MensajesPage() {
+function MensajesContent() {
   const { user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const bookingParam = searchParams.get("chat")
   const [chats, setChats] = useState<Chat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string>("alumno")
   const [dashboardLink, setDashboardLink] = useState("/dashboard")
+
+  // If arriving with ?chat={bookingId}, resolve the chat and open it directly
+  useEffect(() => {
+    async function openBookingChat() {
+      if (!bookingParam || !user?.id) return
+      const result = await getOrCreateChatByBooking(bookingParam)
+      if (result.chatId) {
+        router.replace(`/mensajes/${result.chatId}`)
+      }
+    }
+    openBookingChat()
+  }, [bookingParam, user?.id, router])
 
   useEffect(() => {
     async function load() {
@@ -155,6 +169,20 @@ export default function MensajesPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function MensajesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+        </div>
+      }
+    >
+      <MensajesContent />
+    </Suspense>
   )
 }
 
