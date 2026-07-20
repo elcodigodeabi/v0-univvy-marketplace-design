@@ -32,7 +32,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAsesor } from "@/hooks/use-asesores"
+import { useRoleGuard } from "@/hooks/use-role-guard"
 import { createBooking } from "@/app/actions/bookings"
+import { Loader2 } from "lucide-react"
 
 interface SelectedSlot {
   date: Date
@@ -43,6 +45,7 @@ interface SelectedSlot {
 export default function AgendarSesionPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const { authorized, checking } = useRoleGuard("alumno")
   const [currentDate, setCurrentDate] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
@@ -174,6 +177,15 @@ export default function AgendarSesionPage() {
 
   const totalCost = selectedSlots.length * asesor.precio
   const [selectedDateForSlots, setSelectedDateForSlots] = useState<Date | null>(null)
+
+  // Role guard: only students can book. Advisors are redirected to their dashboard.
+  if (checking || !authorized) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

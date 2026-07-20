@@ -75,8 +75,9 @@ export default function DashboardAsesorPage() {
           setUserRole(profile.role)
 
           // Redirect to student dashboard if not an advisor
+          // replace() so this page doesn't stay in history
           if (profile.role !== "asesor") {
-            router.push("/dashboard")
+            router.replace("/dashboard")
             return
           }
         }

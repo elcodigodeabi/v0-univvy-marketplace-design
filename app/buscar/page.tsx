@@ -25,6 +25,7 @@ import {
   ChevronRight,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { useRoleGuard } from "@/hooks/use-role-guard"
 
 interface SearchResult {
   id: string
@@ -123,6 +124,7 @@ function calculateRelevanceScore(result: SearchResult, query: string): number {
 
 export default function BuscarPage() {
   const router = useRouter()
+  const { authorized, checking } = useRoleGuard("alumno")
   const [searchQuery, setSearchQuery] = useState("")
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -301,6 +303,15 @@ export default function BuscarPage() {
   const clearRecentSearches = () => {
     setRecentSearches([])
     localStorage.removeItem("univvy_recent_searches")
+  }
+
+  // Role guard: search page is student-only. Advisors get redirected.
+  if (checking || !authorized) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+      </div>
+    )
   }
 
   return (

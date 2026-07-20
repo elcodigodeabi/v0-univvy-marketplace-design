@@ -55,7 +55,9 @@ export default function DashboardPage() {
         .single()
 
       if (profile?.role === "asesor") {
-        router.push("/dashboard-asesor")
+        // replace() so /dashboard doesn't stay in history — prevents the
+        // back button from landing advisors on the student dashboard
+        router.replace("/dashboard-asesor")
         return
       }
       setUserRole(profile?.role || "alumno")

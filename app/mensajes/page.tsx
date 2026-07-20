@@ -181,14 +181,14 @@ function ChatCard({
 
   return (
     <Card
-      className={`p-4 transition-shadow ${
+      className={`p-4 transition-shadow cursor-pointer hover:shadow-md ${
         status === "active"
-          ? "cursor-pointer hover:shadow-md border-green-200 bg-green-50/30"
+          ? "border-green-200 bg-green-50/30"
           : status === "upcoming"
           ? "border-amber-200 bg-amber-50/20"
           : "opacity-60"
       }`}
-      onClick={() => status === "active" && router.push(`/mensajes/${chat.id}`)}
+      onClick={() => router.push(`/mensajes/${chat.id}`)}
     >
       <div className="flex items-center gap-3">
         <Avatar className="h-11 w-11 shrink-0">
@@ -226,18 +226,19 @@ function ChatCard({
           <p className="text-xs text-gray-400 mt-0.5">{sessionDate}</p>
         </div>
 
-        {status === "active" && (
-          <Button
-            size="sm"
-            className="bg-red-600 hover:bg-red-700 text-white shrink-0 h-8 text-xs"
-            onClick={(e) => {
-              e.stopPropagation()
-              router.push(`/mensajes/${chat.id}`)
-            }}
-          >
-            Abrir
-          </Button>
-        )}
+        <Button
+          size="sm"
+          variant={status === "active" ? "default" : "outline"}
+          className={`shrink-0 h-8 text-xs ${
+            status === "active" ? "bg-red-600 hover:bg-red-700 text-white" : "border-gray-300 bg-transparent"
+          }`}
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/mensajes/${chat.id}`)
+          }}
+        >
+          {status === "active" ? "Abrir" : "Ver"}
+        </Button>
       </div>
     </Card>
   )
