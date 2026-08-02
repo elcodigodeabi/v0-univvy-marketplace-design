@@ -188,8 +188,10 @@ export async function sendMessage(chatId: string, content: string) {
     .single()
 
   if (error) return { error: error.message }
-  revalidatePath(`/mensajes/${chatId}`)
-  return { message }
+  // Do NOT revalidatePath here — the client handles optimistic + direct fetch.
+  // revalidatePath triggers a full RSC reload which caused the
+  // "only visible after refresh" symptom.
+  return { message, messageId: message?.id }
 }
 
 /** Upload a file and send as message */

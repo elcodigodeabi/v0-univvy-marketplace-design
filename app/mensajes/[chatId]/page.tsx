@@ -81,7 +81,10 @@ export default function ChatRoomPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const supabase = createClient()
+  // Stable client instance — never recreated on re-render so the realtime
+  // subscription always stays on the same socket connection.
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -179,7 +182,7 @@ export default function ChatRoomPage() {
     setSending(true)
     setError(null)
 
-    // Optimistic update: show the message immediately without waiting for realtime
+    // 1. Optimistic: show immediately so the sender sees it at once.
     const optimisticId = `optimistic-${Date.now()}`
     const optimisticMsg: Message = {
       id: optimisticId,
@@ -197,15 +200,42 @@ export default function ChatRoomPage() {
     setMessages((prev) => [...prev, optimisticMsg])
     setInputText("")
 
+    // 2. Persist via server action (handles censoring, auth checks, etc.)
     const result = await sendMessage(chatId, text)
+
     if (result.error) {
-      // Roll back optimistic message on failure
+      // Roll back optimistic message and restore input on failure.
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
       setInputText(text)
       setError(result.error)
+      setSending(false)
+      return
     }
-    // On success the realtime subscription will replace the optimistic message
-    // with the real one (deduplication by ID is already handled in the subscription)
+
+    // 3. Fetch the real inserted message immediately (don't rely solely on
+    //    realtime, which may be slow or inactive in some environments).
+    if (result.messageId) {
+      const { data: realMsg } = await supabase
+        .from("chat_messages")
+        .select(`
+          id, chat_id, sender_id, content, message_type,
+          file_url, file_name, file_size, is_censored, created_at,
+          sender:profiles!chat_messages_sender_id_fkey(id, full_name, avatar_url)
+        `)
+        .eq("id", result.messageId)
+        .single()
+
+      if (realMsg) {
+        setMessages((prev) => {
+          // Remove the optimistic placeholder and append the real message.
+          const withoutOptimistic = prev.filter((m) => m.id !== optimisticId)
+          // Guard against realtime already having added it.
+          if (withoutOptimistic.find((m) => m.id === realMsg.id)) return withoutOptimistic
+          return [...withoutOptimistic, realMsg as Message]
+        })
+      }
+    }
+
     setSending(false)
   }
 
