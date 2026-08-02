@@ -8,6 +8,8 @@ export interface AuthUser {
   id: string
   email: string
   nombre: string
+  first_name: string
+  last_name: string
   tipo: "alumno" | "asesor"
   universidad: string
   carrera: string
@@ -28,7 +30,7 @@ export function useAuth() {
       // OAuth pseudonym (e.g. "spotifyvictoria") which is never what we want.
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, role, universidad, carrera, avatar_url")
+        .select("full_name, first_name, last_name, role, universidad, carrera, avatar_url")
         .eq("id", authUser.id)
         .single()
 
@@ -79,17 +81,33 @@ export function useAuth() {
 
 function mapSupabaseUser(
   authUser: User,
-  profile: { full_name?: string; role?: string; universidad?: string; carrera?: string; avatar_url?: string } | null
+  profile: {
+    full_name?: string
+    first_name?: string
+    last_name?: string
+    role?: string
+    universidad?: string
+    carrera?: string
+    avatar_url?: string
+  } | null
 ): AuthUser {
   const metadata = authUser.user_metadata || {}
 
-  // Priority: profiles.full_name → auth metadata name fields → email prefix
-  const nombre =
-    profile?.full_name?.trim() ||
-    (metadata.full_name as string | undefined)?.trim() ||
-    (metadata.name as string | undefined)?.trim() ||
+  // Prefer granular fields; fall back to splitting full_name, then metadata, then email prefix
+  const first_name =
+    profile?.first_name?.trim() ||
+    (profile?.full_name?.trim().split(" ")[0]) ||
+    (metadata.full_name as string | undefined)?.trim().split(" ")[0] ||
     authUser.email?.split("@")[0] ||
-    "Usuario"
+    ""
+
+  const last_name =
+    profile?.last_name?.trim() ||
+    (profile?.full_name?.trim().split(" ").slice(1).join(" ")) ||
+    (metadata.full_name as string | undefined)?.trim().split(" ").slice(1).join(" ") ||
+    ""
+
+  const nombre = [first_name, last_name].filter(Boolean).join(" ") || "Usuario"
 
   const nameParts = nombre.split(" ").filter(Boolean)
   const iniciales =
@@ -106,6 +124,8 @@ function mapSupabaseUser(
     id: authUser.id,
     email: authUser.email || "",
     nombre,
+    first_name,
+    last_name,
     tipo,
     universidad: profile?.universidad || (metadata.universidad as string) || "",
     carrera: profile?.carrera || (metadata.carrera as string) || "",

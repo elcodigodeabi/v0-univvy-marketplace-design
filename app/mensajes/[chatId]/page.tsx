@@ -130,8 +130,18 @@ export default function ChatRoomPage() {
             .single()
           if (data) {
             setMessages((prev) => {
+              // Already have this real message? skip
               if (prev.find((m) => m.id === data.id)) return prev
-              return [...prev, data as Message]
+              // Replace the optimistic placeholder for this sender+content if present
+              const withoutOptimistic = prev.filter(
+                (m) =>
+                  !(
+                    m.id.startsWith("optimistic-") &&
+                    m.sender_id === data.sender_id &&
+                    m.content === data.content
+                  )
+              )
+              return [...withoutOptimistic, data as Message]
             })
           }
         }
@@ -164,12 +174,38 @@ export default function ChatRoomPage() {
   }, [chat])
 
   const handleSend = async () => {
-    if (!inputText.trim() || sending || isClosed) return
+    if (!inputText.trim() || sending || isClosed || !currentUserId) return
+    const text = inputText.trim()
     setSending(true)
     setError(null)
-    const result = await sendMessage(chatId, inputText.trim())
-    if (result.error) setError(result.error)
-    else setInputText("")
+
+    // Optimistic update: show the message immediately without waiting for realtime
+    const optimisticId = `optimistic-${Date.now()}`
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      chat_id: chatId,
+      sender_id: currentUserId,
+      content: text,
+      message_type: "text",
+      file_url: null,
+      file_name: null,
+      file_size: null,
+      is_censored: false,
+      created_at: new Date().toISOString(),
+      sender: null,
+    }
+    setMessages((prev) => [...prev, optimisticMsg])
+    setInputText("")
+
+    const result = await sendMessage(chatId, text)
+    if (result.error) {
+      // Roll back optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
+      setInputText(text)
+      setError(result.error)
+    }
+    // On success the realtime subscription will replace the optimistic message
+    // with the real one (deduplication by ID is already handled in the subscription)
     setSending(false)
   }
 
