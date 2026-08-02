@@ -467,16 +467,18 @@ export default function ProfilePage() {
                           <Button
                             variant="outline"
                             onClick={() => setIsEditing(false)}
+                            disabled={saving}
                             className="border-gray-300 bg-transparent"
                           >
                             Cancelar
                           </Button>
                           <Button
                             onClick={handleSave}
+                            disabled={saving}
                             className="bg-red-600 hover:bg-red-700 text-white"
                           >
                             <Save className="h-4 w-4 mr-2" />
-                            Guardar Cambios
+                            {saving ? "Guardando..." : "Guardar Cambios"}
                           </Button>
                         </div>
                       )}
