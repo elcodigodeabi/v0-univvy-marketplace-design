@@ -13,6 +13,7 @@ import { UserMenu } from "@/components/user-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { MATERIAS } from "@/lib/constants"
+import { GoogleCalendarCard } from "@/components/google-calendar-card"
 
 export default function ConfiguracionAsesorPage() {
   const [materias, setMaterias] = useState([
@@ -244,7 +245,9 @@ export default function ConfiguracionAsesorPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="preferencias">
+            <TabsContent value="preferencias" className="space-y-6">
+              <GoogleCalendarCard />
+
               <Card className="border-gray-200">
                 <CardHeader>
                   <CardTitle className="text-gray-900">Preferencias Generales</CardTitle>

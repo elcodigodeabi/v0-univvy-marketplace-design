@@ -357,6 +357,64 @@ export async function acceptBookingRequest(bookingId: string) {
       .update({ status: "confirmed" })
       .eq("id", bookingId)
 
+    // ─── Google Calendar + Meet (non-blocking) ────────────────────────────
+    // If the advisor connected Google Calendar, create the event with an
+    // auto-generated Meet link and invite the student. Failure here must
+    // NEVER block the booking confirmation.
+    try {
+      const { data: advisorProfile } = await supabase
+        .from("profiles")
+        .select("google_refresh_token, email, full_name")
+        .eq("id", user.id)
+        .single()
+
+      if (advisorProfile?.google_refresh_token) {
+        const { data: studentProfile } = await supabase
+          .from("profiles")
+          .select("email, full_name")
+          .eq("id", booking.student_id)
+          .single()
+
+        const { createMeetEvent } = await import("@/lib/google-calendar")
+
+        const start = new Date(booking.scheduled_at)
+        const end = new Date(start.getTime() + booking.duration_minutes * 60 * 1000)
+
+        const attendees = [advisorProfile.email, studentProfile?.email].filter(
+          Boolean
+        ) as string[]
+
+        const event = await createMeetEvent({
+          refreshToken: advisorProfile.google_refresh_token,
+          summary: `Tutoría Univvy — ${booking.subject || booking.title || "Sesión"}`,
+          description: [
+            `Sesión de tutoría en Univvy.`,
+            `Asesor: ${advisorProfile.full_name || ""}`,
+            `Alumno: ${studentProfile?.full_name || booking.student_name || ""}`,
+            booking.notes ? `Notas: ${booking.notes}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          startDateTime: start.toISOString(),
+          endDateTime: end.toISOString(),
+          attendees,
+        })
+
+        if (event.meetLink || event.eventId) {
+          await supabase
+            .from("bookings")
+            .update({
+              meeting_link: event.meetLink,
+              google_event_id: event.eventId,
+            })
+            .eq("id", bookingId)
+        }
+      }
+    } catch (calendarError) {
+      // Log and continue — the booking is already confirmed.
+      console.error("[v0] Google Calendar event creation failed (non-blocking):", calendarError)
+    }
+
     revalidatePath("/solicitudes-asesor")
     revalidatePath("/mis-sesiones-asesor")
     return { chatId: chat?.id }
