@@ -252,8 +252,14 @@ export default function DashboardPage() {
                           <Button size="sm" variant="outline" className="border-gray-300 bg-transparent">
                             <MessageSquare className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white">
-                            Ver Detalles
+                          <Button
+                            asChild
+                            size="sm"
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                          >
+                            <Link href={`/mis-sesiones?booking=${sesion.id}`}>
+                              Ver Detalles
+                            </Link>
                           </Button>
                         </div>
                       </div>
