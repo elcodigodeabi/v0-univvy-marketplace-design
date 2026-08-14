@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     if (!accountId) {
       const account = await stripe.accounts.create({
         type: "express",
+        country: "ES",
         email: profile.email ?? user.email ?? undefined,
         capabilities: {
           transfers: { requested: true },
@@ -69,12 +70,12 @@ export async function POST(request: Request) {
     const origin =
       request.headers.get("origin") ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      "http://localhost:3000"
+      `${request.headers.get("x-forwarded-proto") || "https"}://${request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000"}`
 
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: `${origin}/billetera?onboarding=refresh`,
-      return_url: `${origin}/billetera?onboarding=complete`,
+      refresh_url: `${origin}/wallet?onboarding=refresh`,
+      return_url: `${origin}/wallet?onboarding=complete`,
       type: "account_onboarding",
     })
 

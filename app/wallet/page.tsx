@@ -63,6 +63,7 @@ export default function WalletPage() {
   const [withdrawAmount, setWithdrawAmount] = useState("")
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false)
+  const [isConnectingBank, setIsConnectingBank] = useState(false)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [walletData, setWalletData] = useState<WalletData>({
     availableBalance: 0,
@@ -147,6 +148,27 @@ export default function WalletPage() {
       hour: "2-digit",
       minute: "2-digit",
     })
+  }
+
+  const handleAddBankAccount = async () => {
+    setIsConnectingBank(true)
+
+    try {
+      const response = await fetch("/api/connect/onboard", { method: "POST" })
+      const data = await response.json()
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "No se pudo iniciar la configuración bancaria")
+      }
+
+      window.location.assign(data.url)
+    } catch (error) {
+      console.error("[v0] Bank account onboarding error:", error)
+      toast.error("No se pudo abrir la configuración bancaria", {
+        description: "Inténtalo de nuevo en unos segundos.",
+      })
+      setIsConnectingBank(false)
+    }
   }
 
   const handleWithdraw = async () => {
@@ -539,8 +561,19 @@ export default function WalletPage() {
                   <Building className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                   <p className="font-medium mb-2">Sin cuenta bancaria configurada</p>
                   <p className="text-sm mb-4">Agrega una cuenta bancaria para poder retirar tus ganancias.</p>
-                  <Button className="bg-red-600 hover:bg-red-700 text-white">
-                    Agregar Cuenta Bancaria
+                  <Button
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onClick={handleAddBankAccount}
+                    disabled={isConnectingBank}
+                  >
+                    {isConnectingBank ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Abriendo configuración...
+                      </>
+                    ) : (
+                      "Agregar Cuenta Bancaria"
+                    )}
                   </Button>
                 </div>
               )}
