@@ -121,7 +121,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: accountLink.url, accountId })
   } catch (error) {
     console.error("[v0] Connect onboard error:", error)
-    const message = error instanceof Error ? error.message : "Error interno"
-    return NextResponse.json({ error: message }, { status: 500 })
+    const rawMessage = error instanceof Error ? error.message : "Error interno"
+    const connectNotEnabled = rawMessage.includes("signed up for Connect") || rawMessage.includes("connect.me")
+
+    if (connectNotEnabled) {
+      return NextResponse.json(
+        {
+          error:
+            "Stripe Connect todavía no está activado para esta cuenta. Actívalo en https://dashboard.stripe.com/connect.me y vuelve a intentarlo.",
+          code: "CONNECT_NOT_ENABLED",
+        },
+        { status: 503 }
+      )
+    }
+
+    return NextResponse.json({ error: rawMessage }, { status: 500 })
   }
 }
