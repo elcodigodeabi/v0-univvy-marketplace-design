@@ -166,8 +166,8 @@ export default function AgendarSesionPage() {
         pricePerHour: asesor.precio,
       })
 
-      toast.success("Sesion agendada correctamente")
-      router.push(`/mis-sesiones`)
+      toast.success("Sesion agendada. Ahora completa el pago para confirmarla.")
+      router.push(`/pago/${bookingId}`)
     } catch (error: any) {
       toast.error(error?.message || "Error al crear la reserva. Intenta de nuevo.")
     } finally {

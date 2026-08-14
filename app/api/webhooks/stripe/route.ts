@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type Stripe from "stripe"
 import { getStripe } from "@/lib/stripe"
 import { createServiceClient } from "@/lib/supabase/service"
+import { createNotification, createNotifications } from "@/lib/notifications"
 
 /**
  * POST /api/webhooks/stripe
@@ -43,19 +44,62 @@ export async function POST(request: Request) {
       case "payment_intent.succeeded": {
         const pi = event.data.object as Stripe.PaymentIntent
         const bookingId = pi.metadata?.booking_id
+        const studentId = pi.metadata?.student_id
+        const advisorId = pi.metadata?.advisor_id
 
         if (bookingId) {
           // Money captured and held on platform balance (escrow)
-          await supabase
+          const { data: updatedBookings } = await supabase
             .from("bookings")
             .update({ status: "confirmed" })
             .eq("id", bookingId)
             .in("status", ["pending_request", "pending_payment"])
+            .select("id, subject, title")
 
           await supabase
             .from("payments")
             .update({ status: "in_escrow" })
             .eq("booking_id", bookingId)
+
+          // Only notify on the transition we just made (avoids duplicate
+          // notifications if Stripe retries the webhook delivery).
+          if (updatedBookings && updatedBookings.length > 0 && studentId && advisorId) {
+            const sessionLabel = updatedBookings[0].subject || updatedBookings[0].title || "tu sesión"
+            await createNotifications([
+              {
+                userId: studentId,
+                type: "payment_received",
+                title: "Pago recibido",
+                body: `Tu pago por ${sessionLabel} quedará en garantía hasta que ambos confirmen que la clase se realizó.`,
+                data: { booking_id: bookingId },
+              },
+              {
+                userId: advisorId,
+                type: "booking_confirmed",
+                title: "Nueva sesión confirmada y pagada",
+                body: `Un alumno pagó y confirmó una sesión de ${sessionLabel}. El pago quedará en garantía hasta que ambos confirmen la clase.`,
+                data: { booking_id: bookingId },
+              },
+            ])
+          }
+        }
+        break
+      }
+
+      case "payment_intent.payment_failed": {
+        const pi = event.data.object as Stripe.PaymentIntent
+        const bookingId = pi.metadata?.booking_id
+        const studentId = pi.metadata?.student_id
+
+        if (bookingId && studentId) {
+          const reason = pi.last_payment_error?.message || "Ocurrió un error al procesar tu pago."
+          await createNotification({
+            userId: studentId,
+            type: "system",
+            title: "Tu pago no pudo procesarse",
+            body: reason,
+            data: { booking_id: bookingId },
+          })
         }
         break
       }
@@ -88,11 +132,15 @@ export async function POST(request: Request) {
         if (piId) {
           const { data: booking } = await supabase
             .from("bookings")
-            .select("id")
+            .select("id, student_id, advisor_id, subject, title, status")
             .eq("stripe_payment_intent_id", piId)
             .single()
 
           if (booking) {
+            // Only notify the first time this booking transitions to refunded
+            // (avoids duplicate notifications on webhook retries).
+            const alreadyRefunded = booking.status === "refunded"
+
             await supabase
               .from("bookings")
               .update({ status: "refunded" })
@@ -102,6 +150,26 @@ export async function POST(request: Request) {
               .from("payments")
               .update({ status: "refunded" })
               .eq("booking_id", booking.id)
+
+            if (!alreadyRefunded) {
+              const sessionLabel = booking.subject || booking.title || "tu sesión"
+              await createNotifications([
+                {
+                  userId: booking.student_id,
+                  type: "payment_released",
+                  title: "Pago reembolsado",
+                  body: `Tu pago por ${sessionLabel} fue reembolsado.`,
+                  data: { booking_id: booking.id },
+                },
+                {
+                  userId: booking.advisor_id,
+                  type: "booking_cancelled",
+                  title: "Pago reembolsado al alumno",
+                  body: `El pago de ${sessionLabel} fue reembolsado al alumno.`,
+                  data: { booking_id: booking.id },
+                },
+              ])
+            }
           }
         }
         break
