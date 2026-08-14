@@ -45,6 +45,7 @@ export async function POST(request: Request) {
         country: "ES",
         email: profile.email ?? user.email ?? undefined,
         capabilities: {
+          card_payments: { requested: true },
           transfers: { requested: true },
         },
         business_type: "individual",
@@ -64,6 +65,44 @@ export async function POST(request: Request) {
           { status: 500 }
         )
       }
+    }
+
+    const connectedAccount = await stripe.accounts.retrieve(accountId)
+
+    if (connectedAccount.deleted) {
+      return NextResponse.json(
+        { error: "La cuenta bancaria de Stripe fue eliminada. Contacta con soporte para crearla de nuevo." },
+        { status: 409 }
+      )
+    }
+
+    if (connectedAccount.country !== "ES") {
+      const spanishAccount = await stripe.accounts.create({
+        type: "express",
+        country: "ES",
+        email: profile.email ?? user.email ?? undefined,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        business_type: "individual",
+        metadata: { supabase_user_id: user.id, migrated_from: accountId },
+      })
+
+      const { error: migrationError } = await supabase
+        .from("profiles")
+        .update({ stripe_account_id: spanishAccount.id })
+        .eq("id", user.id)
+
+      if (migrationError) {
+        console.error("[v0] Failed to save Spanish Stripe account:", migrationError)
+        return NextResponse.json(
+          { error: "No se pudo guardar la nueva cuenta española de pagos" },
+          { status: 500 }
+        )
+      }
+
+      accountId = spanishAccount.id
     }
 
     // Build return URLs from the request origin

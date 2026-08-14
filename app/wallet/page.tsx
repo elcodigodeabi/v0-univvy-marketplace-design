@@ -165,7 +165,10 @@ export default function WalletPage() {
     } catch (error) {
       console.error("[v0] Bank account onboarding error:", error)
       toast.error("No se pudo abrir la configuración bancaria", {
-        description: "Inténtalo de nuevo en unos segundos.",
+        description:
+          error instanceof Error && error.message
+            ? error.message
+            : "Inténtalo de nuevo en unos segundos.",
       })
       setIsConnectingBank(false)
     }
