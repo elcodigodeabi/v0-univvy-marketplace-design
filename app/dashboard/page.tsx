@@ -8,9 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Search, MessageSquare, Clock, Star, BookOpen, Menu, Bell, Users, Loader2 } from "lucide-react"
+import { Calendar, Search, MessageSquare, Clock, Star, BookOpen, Menu, Users, Loader2 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { UserMenu } from "@/components/user-menu"
+import { NotificationBell } from "@/components/notification-bell"
 import { useAsesores, type Asesor } from "@/hooks/use-asesores"
 import { createClient } from "@/lib/supabase/client"
 
@@ -155,9 +156,7 @@ export default function DashboardPage() {
 
             {/* User Menu */}
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5 text-gray-700" />
-              </Button>
+              <NotificationBell />
 
               <UserMenu variant="alumno" />
 

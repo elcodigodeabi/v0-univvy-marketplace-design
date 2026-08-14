@@ -24,6 +24,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { UserMenu } from "@/components/user-menu"
+import { NotificationBell } from "@/components/notification-bell"
 import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
 import { getAdvisorSessions } from "@/app/actions/advisor"
@@ -169,6 +170,7 @@ export default function CalendarioAsesorPage() {
             </nav>
 
             <div className="flex items-center gap-3">
+              <NotificationBell />
               <UserMenu variant="asesor" />
               <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-5 w-5 text-gray-700" />

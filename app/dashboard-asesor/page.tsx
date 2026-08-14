@@ -15,7 +15,6 @@ import {
   TrendingUp,
   DollarSign,
   Users,
-  Bell,
   Menu,
   CheckCircle,
   AlertCircle,
@@ -24,6 +23,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { UserMenu } from "@/components/user-menu"
+import { NotificationBell } from "@/components/notification-bell"
 import { createClient } from "@/lib/supabase/client"
 import { getAdvisorStats, getAdvisorSessions, getAdvisorPendingRequests } from "@/app/actions/advisor"
 
@@ -152,12 +152,7 @@ export default function DashboardAsesorPage() {
             </nav>
 
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5 text-gray-700" />
-                {solicitudesPendientes.length > 0 && (
-                  <span className="absolute top-1 right-1 h-2 w-2 bg-red-600 rounded-full"></span>
-                )}
-              </Button>
+              <NotificationBell />
 
               <UserMenu variant="asesor" />
 

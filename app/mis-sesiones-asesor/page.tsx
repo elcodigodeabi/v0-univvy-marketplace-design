@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, Clock, Star, DollarSign, ArrowLeft, MessageSquare, CheckCircle, Loader2 } from "lucide-react"
 import { UserMenu } from "@/components/user-menu"
+import { NotificationBell } from "@/components/notification-bell"
 import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase/client"
 import { getOrCreateChatByBooking } from "@/app/actions/chat"
@@ -189,7 +190,10 @@ export default function MisSesionesAsesorPage() {
                 <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto" />
               </div>
             </div>
-            <UserMenu variant="asesor" />
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <UserMenu variant="asesor" />
+            </div>
           </div>
         </div>
       </header>
