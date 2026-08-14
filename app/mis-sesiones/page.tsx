@@ -29,6 +29,7 @@ import { getMyBookings, studentConfirmSession } from "@/app/actions/bookings"
 import { getOrCreateChatByBooking } from "@/app/actions/chat"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { ReceiptDialog } from "@/components/receipt-dialog"
 
 type Booking = Awaited<ReturnType<typeof getMyBookings>>[number]
 
@@ -276,6 +277,9 @@ export default function MisSesionesPage() {
                 )}
                 Chat
               </Button>
+            )}
+            {b.status !== "pending_request" && b.status !== "pending_payment" && (
+              <ReceiptDialog bookingId={b.id} className="border-gray-300 bg-transparent" />
             )}
           </div>
         </CardContent>

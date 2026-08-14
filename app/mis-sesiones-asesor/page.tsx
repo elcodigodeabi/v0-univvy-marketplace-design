@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/client"
 import { getOrCreateChatByBooking } from "@/app/actions/chat"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { ReceiptDialog } from "@/components/receipt-dialog"
 
 interface Session {
   id: string
@@ -349,6 +350,7 @@ export default function MisSesionesAsesorPage() {
                               Chat
                             </Button>
                           )}
+                          <ReceiptDialog bookingId={sesion.id} className="border-gray-300 bg-transparent" />
                         </div>
                       </CardContent>
                     </Card>
@@ -394,7 +396,7 @@ export default function MisSesionesAsesorPage() {
                         </div>
 
                         {sesion.calificacion && (
-                          <div className="bg-yellow-50 rounded-lg p-4">
+                          <div className="bg-yellow-50 rounded-lg p-4 mb-4">
                             <div className="flex items-center gap-2 mb-2">
                               <p className="text-sm font-medium text-gray-900">Calificación:</p>
                               <div className="flex">
@@ -411,6 +413,8 @@ export default function MisSesionesAsesorPage() {
                             {sesion.comentario && <p className="text-sm text-gray-700 italic">"{sesion.comentario}"</p>}
                           </div>
                         )}
+
+                        <ReceiptDialog bookingId={sesion.id} className="border-gray-300 bg-transparent" />
                       </CardContent>
                     </Card>
                   ))
