@@ -10,9 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Plus, X, Save, DollarSign, BookOpen, Settings } from "lucide-react"
 import { UserMenu } from "@/components/user-menu"
+import { NotificationBell } from "@/components/notification-bell"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { MATERIAS } from "@/lib/constants"
+import { GoogleCalendarCard } from "@/components/google-calendar-card"
 
 export default function ConfiguracionAsesorPage() {
   const [materias, setMaterias] = useState([
@@ -74,7 +76,10 @@ export default function ConfiguracionAsesorPage() {
                 <img src="/univvy-icon.png" alt="Univvy" className="h-14 w-auto object-contain" />
               </Link>
             </div>
-            <UserMenu variant="asesor" />
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <UserMenu variant="asesor" />
+            </div>
           </div>
         </div>
       </header>
@@ -244,7 +249,9 @@ export default function ConfiguracionAsesorPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="preferencias">
+            <TabsContent value="preferencias" className="space-y-6">
+              <GoogleCalendarCard />
+
               <Card className="border-gray-200">
                 <CardHeader>
                   <CardTitle className="text-gray-900">Preferencias Generales</CardTitle>

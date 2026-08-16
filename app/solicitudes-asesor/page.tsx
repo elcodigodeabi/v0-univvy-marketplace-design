@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft, MessageSquare, MapPin, Loader2, Video } from "lucide-react"
 import { UserMenu } from "@/components/user-menu"
+import { NotificationBell } from "@/components/notification-bell"
 import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase/client"
 import { acceptBookingRequest, rejectBookingRequest, getMyAdvisorBookings } from "@/app/actions/bookings"
@@ -246,7 +247,10 @@ export default function SolicitudesAsesorPage() {
                 <img src="/univvy-logo.png" alt="Univvy" className="h-10 w-auto" />
               </div>
             </div>
-            <UserMenu variant="asesor" />
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <UserMenu variant="asesor" />
+            </div>
           </div>
         </div>
       </header>

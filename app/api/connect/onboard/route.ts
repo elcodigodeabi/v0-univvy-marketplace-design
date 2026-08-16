@@ -42,8 +42,10 @@ export async function POST(request: Request) {
     if (!accountId) {
       const account = await stripe.accounts.create({
         type: "express",
+        country: "ES",
         email: profile.email ?? user.email ?? undefined,
         capabilities: {
+          card_payments: { requested: true },
           transfers: { requested: true },
         },
         business_type: "individual",
@@ -65,23 +67,74 @@ export async function POST(request: Request) {
       }
     }
 
+    const connectedAccount = await stripe.accounts.retrieve(accountId)
+
+    if (connectedAccount.deleted) {
+      return NextResponse.json(
+        { error: "La cuenta bancaria de Stripe fue eliminada. Contacta con soporte para crearla de nuevo." },
+        { status: 409 }
+      )
+    }
+
+    if (connectedAccount.country !== "ES") {
+      const spanishAccount = await stripe.accounts.create({
+        type: "express",
+        country: "ES",
+        email: profile.email ?? user.email ?? undefined,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        business_type: "individual",
+        metadata: { supabase_user_id: user.id, migrated_from: accountId },
+      })
+
+      const { error: migrationError } = await supabase
+        .from("profiles")
+        .update({ stripe_account_id: spanishAccount.id })
+        .eq("id", user.id)
+
+      if (migrationError) {
+        console.error("[v0] Failed to save Spanish Stripe account:", migrationError)
+        return NextResponse.json(
+          { error: "No se pudo guardar la nueva cuenta española de pagos" },
+          { status: 500 }
+        )
+      }
+
+      accountId = spanishAccount.id
+    }
+
     // Build return URLs from the request origin
     const origin =
       request.headers.get("origin") ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      "http://localhost:3000"
+      `${request.headers.get("x-forwarded-proto") || "https"}://${request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000"}`
 
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: `${origin}/billetera?onboarding=refresh`,
-      return_url: `${origin}/billetera?onboarding=complete`,
+      refresh_url: `${origin}/wallet?onboarding=refresh`,
+      return_url: `${origin}/wallet?onboarding=complete`,
       type: "account_onboarding",
     })
 
     return NextResponse.json({ url: accountLink.url, accountId })
   } catch (error) {
     console.error("[v0] Connect onboard error:", error)
-    const message = error instanceof Error ? error.message : "Error interno"
-    return NextResponse.json({ error: message }, { status: 500 })
+    const rawMessage = error instanceof Error ? error.message : "Error interno"
+    const connectNotEnabled = rawMessage.includes("signed up for Connect") || rawMessage.includes("connect.me")
+
+    if (connectNotEnabled) {
+      return NextResponse.json(
+        {
+          error:
+            "Stripe Connect todavía no está activado para esta cuenta. Actívalo en https://dashboard.stripe.com/connect.me y vuelve a intentarlo.",
+          code: "CONNECT_NOT_ENABLED",
+        },
+        { status: 503 }
+      )
+    }
+
+    return NextResponse.json({ error: rawMessage }, { status: 500 })
   }
 }

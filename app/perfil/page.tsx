@@ -28,15 +28,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UNIVERSIDADES, CARRERAS } from "@/lib/constants"
 import { useAuth } from "@/hooks/use-auth"
 import { AvatarUpload } from "@/components/avatar-upload"
+import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
 export default function ProfilePage() {
   const { user, loading, signOut } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   // Profile data state - initialized from auth user
   const [profileData, setProfileData] = useState({
-    nombre: "",
+    first_name: "",
+    last_name: "",
     email: "",
     telefono: "+57 300 123 4567",
     universidad: "",
@@ -58,7 +61,8 @@ export default function ProfilePage() {
     if (user) {
       setProfileData(prev => ({
         ...prev,
-        nombre: user.nombre || "",
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
         email: user.email || "",
         universidad: user.universidad || "",
         carrera: user.carrera || "",
@@ -67,9 +71,28 @@ export default function ProfilePage() {
     }
   }, [user])
 
-  const handleSave = () => {
-    setIsEditing(false)
-    toast.success("Perfil actualizado correctamente")
+  const handleSave = async () => {
+    if (!user?.id) return
+    setSaving(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          first_name: profileData.first_name.trim(),
+          last_name: profileData.last_name.trim(),
+          // full_name is kept in sync by the DB trigger
+        })
+        .eq("id", user.id)
+
+      if (error) throw error
+      setIsEditing(false)
+      toast.success("Perfil actualizado correctamente")
+    } catch {
+      toast.error("No se pudo guardar el perfil. Intenta de nuevo.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) {
@@ -122,7 +145,9 @@ export default function ProfilePage() {
                         />
                       )}
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-1">{user?.nombre || "Usuario"}</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-1">
+                      {[profileData.first_name, profileData.last_name].filter(Boolean).join(" ") || user?.nombre || "Usuario"}
+                    </h2>
                     <Badge variant="secondary" className="mb-4">
                       {userType === "alumno" ? "Alumno" : "Asesor"}
                     </Badge>
@@ -188,15 +213,30 @@ export default function ProfilePage() {
                     <CardContent className="space-y-4">
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="nombre">Nombre Completo</Label>
+                          <Label htmlFor="first_name">Nombre</Label>
                           <Input
-                            id="nombre"
-                            value={profileData.nombre}
+                            id="first_name"
+                            value={profileData.first_name}
                             disabled={!isEditing}
-                            onChange={(e) => setProfileData({ ...profileData, nombre: e.target.value })}
+                            onChange={(e) => setProfileData({ ...profileData, first_name: e.target.value })}
                             className="border-gray-300"
+                            placeholder="Tu nombre"
                           />
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="last_name">Apellido</Label>
+                          <Input
+                            id="last_name"
+                            value={profileData.last_name}
+                            disabled={!isEditing}
+                            onChange={(e) => setProfileData({ ...profileData, last_name: e.target.value })}
+                            className="border-gray-300"
+                            placeholder="Tu apellido"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="email">Correo Electrónico</Label>
                           <div className="relative">
@@ -260,16 +300,18 @@ export default function ProfilePage() {
                           <Button
                             variant="outline"
                             onClick={() => setIsEditing(false)}
+                            disabled={saving}
                             className="border-gray-300 bg-transparent"
                           >
                             Cancelar
                           </Button>
                           <Button
                             onClick={handleSave}
+                            disabled={saving}
                             className="bg-red-600 hover:bg-red-700 text-white"
                           >
                             <Save className="h-4 w-4 mr-2" />
-                            Guardar Cambios
+                            {saving ? "Guardando..." : "Guardar Cambios"}
                           </Button>
                         </div>
                       )}
@@ -425,16 +467,18 @@ export default function ProfilePage() {
                           <Button
                             variant="outline"
                             onClick={() => setIsEditing(false)}
+                            disabled={saving}
                             className="border-gray-300 bg-transparent"
                           >
                             Cancelar
                           </Button>
                           <Button
                             onClick={handleSave}
+                            disabled={saving}
                             className="bg-red-600 hover:bg-red-700 text-white"
                           >
                             <Save className="h-4 w-4 mr-2" />
-                            Guardar Cambios
+                            {saving ? "Guardando..." : "Guardar Cambios"}
                           </Button>
                         </div>
                       )}
