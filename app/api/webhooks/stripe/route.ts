@@ -15,9 +15,13 @@ import { createNotification, createNotifications } from "@/lib/notifications"
  * Uses the Supabase service-role client because webhooks have no user session.
  */
 export async function POST(request: Request) {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
-  if (!webhookSecret) {
-    console.error("[v0] STRIPE_WEBHOOK_SECRET is not set")
+  const webhookSecrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_CONNECT,
+  ].filter((secret, index, secrets): secret is string => Boolean(secret) && secrets.indexOf(secret) === index)
+
+  if (webhookSecrets.length === 0) {
+    console.error("[v0] No Stripe webhook secret is configured")
     return NextResponse.json({ error: "Webhook not configured" }, { status: 500 })
   }
 
@@ -29,12 +33,25 @@ export async function POST(request: Request) {
   const body = await request.text()
   const stripe = getStripe()
 
-  let event: Stripe.Event
-  try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
-  } catch (err) {
-    console.error("[v0] Webhook signature verification failed:", err)
+  let event: Stripe.Event | undefined
+  let signatureError: unknown
+  for (const webhookSecret of webhookSecrets) {
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
+      break
+    } catch (err) {
+      signatureError = err
+    }
+  }
+
+  if (!event) {
+    console.error("[v0] Webhook signature verification failed:", signatureError)
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
+  }
+
+  const connectedAccountId = request.headers.get("stripe-account")
+  if (connectedAccountId) {
+    console.log(`[v0] Processing Connect webhook for ${connectedAccountId}: ${event.type}`)
   }
 
   const supabase = createServiceClient()
