@@ -22,9 +22,12 @@ export function AvatarUpload({ currentAvatarUrl, userId, onAvatarChange }: Avata
     const file = event.target.files?.[0]
     if (!file) return
 
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      toast.error("Por favor selecciona una imagen válida")
+    const allowedTypes = ["image/png", "image/jpeg"]
+    const allowedExtensions = ["png", "jpg", "jpeg"]
+    const extension = file.name.split(".").pop()?.toLowerCase() || ""
+
+    if (!allowedTypes.includes(file.type) || !allowedExtensions.includes(extension)) {
+      toast.error("Solo se permiten imágenes PNG, JPG o JPEG")
       return
     }
 
@@ -105,7 +108,7 @@ export function AvatarUpload({ currentAvatarUrl, userId, onAvatarChange }: Avata
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg,.jpg,.jpeg"
         onChange={handleFileSelect}
         disabled={uploading}
         className="hidden"
