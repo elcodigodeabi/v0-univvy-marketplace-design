@@ -95,9 +95,8 @@ export default function ProfilePage() {
         .from("profiles")
         .update({
           full_name: `${profileData.first_name.trim()} ${profileData.last_name.trim()}`.trim(),
-          nombre: `${profileData.first_name.trim()} ${profileData.last_name.trim()}`.trim(),
-          phone: profileData.telefono.trim(),
-          descripcion: profileData.biografia.trim(),
+          telefono: profileData.telefono.trim(),
+          bio: profileData.biografia.trim(),
         })
         .eq("id", user.id)
 

@@ -32,7 +32,7 @@ export function useAuth() {
       // OAuth pseudonym (e.g. "spotifyvictoria") which is never what we want.
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, nombre, role, universidad, carrera, avatar_url, phone, descripcion")
+        .select("full_name, role, universidad, carrera, avatar_url, telefono, bio")
         .eq("id", authUser.id)
         .single()
 
@@ -85,13 +85,12 @@ function mapSupabaseUser(
   authUser: User,
   profile: {
     full_name?: string
-    nombre?: string
     role?: string
     universidad?: string
     carrera?: string
     avatar_url?: string
-    phone?: string
-    descripcion?: string
+    telefono?: string
+    bio?: string
   } | null
 ): AuthUser {
   const metadata = authUser.user_metadata || {}
@@ -99,14 +98,12 @@ function mapSupabaseUser(
   // Prefer granular fields; fall back to splitting full_name, then metadata, then email prefix
   const first_name =
     (profile?.full_name?.trim().split(" ")[0]) ||
-    (profile?.nombre?.trim().split(" ")[0]) ||
     (metadata.full_name as string | undefined)?.trim().split(" ")[0] ||
     authUser.email?.split("@")[0] ||
     ""
 
   const last_name =
     (profile?.full_name?.trim().split(" ").slice(1).join(" ")) ||
-    (profile?.nombre?.trim().split(" ").slice(1).join(" ")) ||
     (metadata.full_name as string | undefined)?.trim().split(" ").slice(1).join(" ") ||
     ""
 
@@ -135,8 +132,8 @@ function mapSupabaseUser(
     iniciales,
     avatar: profile?.avatar_url || (metadata.avatar as string) || undefined,
     avatar_url: profile?.avatar_url || undefined,
-    phone: profile?.phone || "",
-    bio: profile?.descripcion || "",
+    phone: profile?.telefono || "",
+    bio: profile?.bio || "",
   }
 }
 
