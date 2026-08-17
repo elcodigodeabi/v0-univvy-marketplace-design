@@ -525,10 +525,13 @@ export async function acceptBookingRequest(bookingId: string) {
     }
 
     // Update booking status to confirmed
-    await supabase
-      .from("bookings")
-      .update({ status: "confirmed" })
-      .eq("id", bookingId)
+  const { error: updateError } = await supabase
+    .from("bookings")
+    .update({ status: "confirmed", updated_at: new Date().toISOString() })
+    .eq("id", bookingId)
+
+  if (updateError) throw updateError
+
 
     // ─── Google Calendar + Meet (non-blocking) ────────────────────────────
     // If the advisor connected Google Calendar, create the event with an
@@ -623,14 +626,17 @@ export async function rejectBookingRequest(bookingId: string, reason?: string) {
     if (booking.status !== "pending_request") throw new Error("Esta solicitud ya fue procesada")
 
     // Update booking status to rejected
-    await supabase
+    const { error: updateError } = await supabase
       .from("bookings")
       .update({
         status: "rejected",
         rejected_at: new Date().toISOString(),
         rejection_reason: reason || "El asesor no está disponible en este momento",
+        updated_at: new Date().toISOString(),
       })
       .eq("id", bookingId)
+
+    if (updateError) throw updateError
 
     // Refund payment if exists
     const refundResult = await refundEscrowFunds(bookingId, reason || "advisor_rejected")

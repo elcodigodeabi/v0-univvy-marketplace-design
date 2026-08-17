@@ -26,6 +26,8 @@ import { UserMenu } from "@/components/user-menu"
 import { NotificationBell } from "@/components/notification-bell"
 import { createClient } from "@/lib/supabase/client"
 import { getAdvisorStats, getAdvisorSessions, getAdvisorPendingRequests } from "@/app/actions/advisor"
+import { acceptBookingRequest, rejectBookingRequest } from "@/app/actions/bookings"
+import { toast } from "sonner"
 
 interface Stats {
   ganancias_mes: number
@@ -43,6 +45,7 @@ export default function DashboardAsesorPage() {
   const { user } = useAuth()
   const [proximasSesiones, setProximasSesiones] = useState<any[]>([])
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<any[]>([])
+  const [processingId, setProcessingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [roleCheckComplete, setRoleCheckComplete] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
@@ -110,6 +113,32 @@ export default function DashboardAsesorPage() {
 
     fetchData()
   }, [user?.id])
+
+  const handleAccept = async (bookingId: string) => {
+    setProcessingId(bookingId)
+    try {
+      await acceptBookingRequest(bookingId)
+      setSolicitudesPendientes((prev) => prev.filter((solicitud) => solicitud.id !== bookingId))
+      toast.success("Solicitud aceptada correctamente")
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo aceptar la solicitud")
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleReject = async (bookingId: string) => {
+    setProcessingId(bookingId)
+    try {
+      await rejectBookingRequest(bookingId)
+      setSolicitudesPendientes((prev) => prev.filter((solicitud) => solicitud.id !== bookingId))
+      toast.success("Solicitud rechazada correctamente")
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo rechazar la solicitud")
+    } finally {
+      setProcessingId(null)
+    }
+  }
 
   // Show loading while checking role (prevents flash of wrong UI)
   if (!roleCheckComplete) {
@@ -289,14 +318,25 @@ export default function DashboardAsesorPage() {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
-                              <CheckCircle className="h-4 w-4 mr-1" />
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={() => handleAccept(solicitud.id)}
+                              disabled={processingId === solicitud.id}
+                            >
+                              {processingId === solicitud.id ? (
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                              )}
                               Aceptar
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               className="border-red-300 text-red-600 hover:bg-red-50 bg-transparent"
+                              onClick={() => handleReject(solicitud.id)}
+                              disabled={processingId === solicitud.id}
                             >
                               Rechazar
                             </Button>
