@@ -66,6 +66,8 @@ export default function ProfilePage() {
         email: user.email || "",
         universidad: user.universidad || "",
         carrera: user.carrera || "",
+        telefono: user.phone || "",
+        biografia: user.bio || "",
       }))
       setAvatarUrl(user.avatar_url || null)
     }
@@ -81,6 +83,8 @@ export default function ProfilePage() {
         .update({
           first_name: profileData.first_name.trim(),
           last_name: profileData.last_name.trim(),
+          phone: profileData.telefono.trim(),
+          bio: profileData.biografia.trim(),
           // full_name is kept in sync by the DB trigger
         })
         .eq("id", user.id)

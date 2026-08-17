@@ -16,6 +16,8 @@ export interface AuthUser {
   iniciales: string
   avatar?: string
   avatar_url?: string
+  phone?: string
+  bio?: string
 }
 
 export function useAuth() {
@@ -30,7 +32,7 @@ export function useAuth() {
       // OAuth pseudonym (e.g. "spotifyvictoria") which is never what we want.
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, first_name, last_name, role, universidad, carrera, avatar_url")
+        .select("full_name, first_name, last_name, role, universidad, carrera, avatar_url, phone, bio")
         .eq("id", authUser.id)
         .single()
 
@@ -89,6 +91,8 @@ function mapSupabaseUser(
     universidad?: string
     carrera?: string
     avatar_url?: string
+    phone?: string
+    bio?: string
   } | null
 ): AuthUser {
   const metadata = authUser.user_metadata || {}
@@ -132,6 +136,8 @@ function mapSupabaseUser(
     iniciales,
     avatar: profile?.avatar_url || (metadata.avatar as string) || undefined,
     avatar_url: profile?.avatar_url || undefined,
+    phone: profile?.phone || "",
+    bio: profile?.bio || "",
   }
 }
 

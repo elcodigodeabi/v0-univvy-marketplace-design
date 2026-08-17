@@ -62,6 +62,12 @@ export function UserMenu({ variant = "alumno" }: UserMenuProps) {
         ) : (
           <>
             <DropdownMenuItem asChild>
+              <Link href="/perfil" className="cursor-pointer">
+                <User className="mr-2 h-4 w-4" />
+                Mi Perfil
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
               <Link href="/configuracion-asesor" className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 Configuración
