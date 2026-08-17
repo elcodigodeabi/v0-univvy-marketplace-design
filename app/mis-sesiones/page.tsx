@@ -24,6 +24,7 @@ import {
   ThumbsDown,
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
+import { MobileNav } from "@/components/mobile-nav"
 import { useRoleGuard } from "@/hooks/use-role-guard"
 import { getMyBookings, studentConfirmSession } from "@/app/actions/bookings"
 import { getOrCreateChatByBooking } from "@/app/actions/chat"
@@ -318,7 +319,7 @@ export default function MisSesionesPage() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 pb-24">
         <div className="max-w-5xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Mis Sesiones</h1>
@@ -326,7 +327,7 @@ export default function MisSesionesPage() {
           </div>
 
           {/* Stats */}
-          <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Card className="border-gray-200">
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
@@ -430,6 +431,7 @@ export default function MisSesionesPage() {
           </Card>
         </div>
       </main>
+      <MobileNav variant="student" />
     </div>
   )
 }
