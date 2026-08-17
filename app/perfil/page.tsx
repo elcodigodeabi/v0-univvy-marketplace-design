@@ -78,6 +78,19 @@ export default function ProfilePage() {
     setSaving(true)
     try {
       const supabase = createClient()
+      const nextEmail = profileData.email.trim().toLowerCase()
+
+      if (!nextEmail) {
+        toast.error("El correo electrónico es obligatorio")
+        return
+      }
+
+      if (nextEmail !== user.email.toLowerCase()) {
+        const { error: emailError } = await supabase.auth.updateUser({ email: nextEmail })
+        if (emailError) throw emailError
+        toast.info("Revisa tu nuevo correo para confirmar el cambio")
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -249,11 +262,14 @@ export default function ProfilePage() {
                               id="email"
                               type="email"
                               value={profileData.email}
-                              disabled
-                              className="pl-10 border-gray-300 bg-gray-50"
+                              disabled={!isEditing}
+                              onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                              className="pl-10 border-gray-300"
                             />
                           </div>
-                          <p className="text-xs text-gray-500">El correo no se puede cambiar</p>
+                          <p className="text-xs text-gray-500">
+                            Si lo cambias, deberás confirmarlo desde el nuevo correo.
+                          </p>
                         </div>
                       </div>
 
