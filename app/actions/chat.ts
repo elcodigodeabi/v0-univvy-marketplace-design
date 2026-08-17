@@ -7,15 +7,20 @@ import { revalidatePath } from 'next/cache'
 
 // Phone number censorship regex — matches common formats
 const PHONE_REGEX = /(\+?[\d\s\-().]{7,}(?:\d[\s\-.]?){6,}\d)/g
+const CONTACT_REGEX = /(?:https?:\/\/|www\.|t\.me\/|telegram(?:\.me)?\/|wa\.me\/|whatsapp(?:\.com)?\/|(?:whats\s*app|telegram)\b)/gi
+const CENSOR_MESSAGE = '[Univvy no permite compartir datos de contacto externos. Usa el chat de la plataforma para comunicarte.]'
 
-function censorPhoneNumbers(text: string): { censored: boolean; text: string } {
-  const matches = text.match(PHONE_REGEX)
-  if (!matches) return { censored: false, text }
-  const cleaned = text.replace(
-    PHONE_REGEX,
-    '[Univvy no permite compartir números de teléfono. Usa el chat de la plataforma para comunicarte.]'
-  )
-  return { censored: true, text: cleaned }
+function censorContactData(text: string): { censored: boolean; text: string } {
+  let censored = false
+  let processed = text.replace(PHONE_REGEX, () => {
+    censored = true
+    return CENSOR_MESSAGE
+  })
+  processed = processed.replace(CONTACT_REGEX, () => {
+    censored = true
+    return CENSOR_MESSAGE
+  })
+  return { censored, text: processed }
 }
 
 /** Create a chat room for a confirmed booking (called after payment confirmed) */
@@ -170,7 +175,9 @@ export async function sendMessage(chatId: string, content: string) {
   }
 
   // Censor phone numbers
-  const { censored, text: processedContent } = censorPhoneNumbers(content.trim())
+  if (!content.trim()) return { error: 'El mensaje no puede estar vacío' }
+
+  const { censored, text: processedContent } = censorContactData(content.trim())
 
   const { data: message, error } = await supabase
     .from('chat_messages')
@@ -203,22 +210,23 @@ export async function sendFileMessage(chatId: string, formData: FormData) {
   const file = formData.get('file') as File
   if (!file) return { error: 'No file provided' }
 
-  // 10MB limit
-  if (file.size > 10 * 1024 * 1024) {
-    return { error: 'El archivo no puede superar 10MB' }
+  if (file.size === 0 || file.size > 50 * 1024 * 1024) {
+    return { error: 'El archivo debe pesar entre 1 byte y 50MB' }
   }
 
   const allowedTypes = [
-    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-    'application/pdf',
-    'application/msword',
+    'application/pdf', 'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/plain',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo',
   ]
-  if (!allowedTypes.includes(file.type)) {
-    return { error: 'Tipo de archivo no permitido' }
+  const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'mp4', 'webm', 'mov', 'avi']
+  const extension = file.name.split('.').pop()?.toLowerCase() || ''
+  if (!allowedTypes.includes(file.type) || !allowedExtensions.includes(extension)) {
+    return { error: 'Solo se permiten PDF, Word, Excel, PowerPoint y videos MP4, WEBM, MOV o AVI' }
   }
 
   // Check chat is active
@@ -228,11 +236,14 @@ export async function sendFileMessage(chatId: string, formData: FormData) {
     .eq('id', chatId)
     .single()
 
-  if (!chat?.is_active || new Date(chat.closes_at) <= new Date()) {
+  if (!chat || chat.student_id !== user.id && chat.advisor_id !== user.id) {
+    return { error: 'No tienes acceso a este chat' }
+  }
+  if (!chat.is_active || new Date(chat.closes_at) <= new Date()) {
     return { error: 'Este chat ha finalizado' }
   }
 
-  const ext = file.name.split('.').pop()
+  const ext = extension
   const path = `chats/${chatId}/${user.id}/${Date.now()}.${ext}`
 
   const blob = await put(path, file, { access: 'public' })

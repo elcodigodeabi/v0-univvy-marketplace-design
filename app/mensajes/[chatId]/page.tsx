@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
   ArrowLeft, Send, Paperclip, FileText, Image as ImageIcon,
-  File, Clock, Lock, AlertTriangle, X
+  File, Clock, Lock, AlertTriangle, X, Video
 } from "lucide-react"
 
 interface Message {
@@ -376,8 +376,19 @@ export default function ChatRoomPage() {
                   </div>
                 )}
 
+                {/* Video */}
+                {msg.file_url && /\.(mp4|webm|mov|avi)$/i.test(msg.file_name ?? "") && (
+                  <div className={`rounded-2xl overflow-hidden ${isOwn ? "bg-primary" : "bg-muted"}`}>
+                    <video controls preload="metadata" className="max-w-[280px] max-h-[220px]">
+                      <source src={msg.file_url} />
+                      Tu navegador no puede reproducir este video.
+                    </video>
+                    <p className="px-3 py-2 text-xs truncate">{msg.file_name}</p>
+                  </div>
+                )}
+
                 {/* PDF / Document */}
-                {(msg.message_type === "pdf" || msg.message_type === "document") && msg.file_url && (
+                {(msg.message_type === "pdf" || msg.message_type === "document") && msg.file_url && !/\.(mp4|webm|mov|avi)$/i.test(msg.file_name ?? "") && (
                   <a
                     href={msg.file_url}
                     target="_blank"
@@ -448,7 +459,7 @@ export default function ChatRoomPage() {
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp4,.webm,.mov,.avi,video/mp4,video/webm,video/quicktime,video/x-msvideo,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
             onChange={(e) => {
               const f = e.target.files?.[0]
               if (f) setSelectedFile(f)
