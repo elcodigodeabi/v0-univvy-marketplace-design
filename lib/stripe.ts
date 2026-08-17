@@ -16,7 +16,6 @@ export function getStripe(): Stripe {
   }
   if (!_stripe) {
     _stripe = new Stripe(key, {
-      apiVersion: "2024-06-20",
       typescript: true,
     })
   }
