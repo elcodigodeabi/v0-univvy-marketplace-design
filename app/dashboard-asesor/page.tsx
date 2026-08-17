@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { UserMenu } from "@/components/user-menu"
+import { MobileNav } from "@/components/mobile-nav"
 import { NotificationBell } from "@/components/notification-bell"
 import { createClient } from "@/lib/supabase/client"
 import { getAdvisorStats, getAdvisorSessions, getAdvisorPendingRequests } from "@/app/actions/advisor"
@@ -203,7 +204,7 @@ export default function DashboardAsesorPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="border-gray-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
@@ -448,6 +449,7 @@ export default function DashboardAsesorPage() {
           </div>
         )}
       </main>
+      <MobileNav variant="advisor" />
     </div>
   )
 }

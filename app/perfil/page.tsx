@@ -94,11 +94,10 @@ export default function ProfilePage() {
       const { error } = await supabase
         .from("profiles")
         .update({
-          first_name: profileData.first_name.trim(),
-          last_name: profileData.last_name.trim(),
+          full_name: `${profileData.first_name.trim()} ${profileData.last_name.trim()}`.trim(),
+          nombre: `${profileData.first_name.trim()} ${profileData.last_name.trim()}`.trim(),
           phone: profileData.telefono.trim(),
-          bio: profileData.biografia.trim(),
-          // full_name is kept in sync by the DB trigger
+          descripcion: profileData.biografia.trim(),
         })
         .eq("id", user.id)
 

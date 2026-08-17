@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Calendar, Search, MessageSquare, Clock, Star, BookOpen, Menu, Users, Loader2 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { UserMenu } from "@/components/user-menu"
+import { MobileNav } from "@/components/mobile-nav"
 import { NotificationBell } from "@/components/notification-bell"
 import { useAsesores, type Asesor } from "@/hooks/use-asesores"
 import { createClient } from "@/lib/supabase/client"
@@ -182,7 +183,7 @@ export default function DashboardPage() {
   <Link href="/buscar">
   <Card className="mb-8 border-gray-200 hover:shadow-md hover:border-red-200 transition-all cursor-pointer">
   <CardContent className="p-6">
-  <div className="flex gap-3">
+  <div className="flex flex-col gap-3 sm:flex-row">
   <div className="relative flex-1">
   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
   <Input
@@ -404,6 +405,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+      <MobileNav variant="student" />
     </div>
   )
 }
