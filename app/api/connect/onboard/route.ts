@@ -45,7 +45,6 @@ export async function POST(request: Request) {
         country: "ES",
         email: profile.email ?? user.email ?? undefined,
         capabilities: {
-          card_payments: { requested: true },
           transfers: { requested: true },
         },
         business_type: "individual",
@@ -82,7 +81,6 @@ export async function POST(request: Request) {
         country: "ES",
         email: profile.email ?? user.email ?? undefined,
         capabilities: {
-          card_payments: { requested: true },
           transfers: { requested: true },
         },
         business_type: "individual",
