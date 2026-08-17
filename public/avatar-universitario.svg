@@ -1,0 +1,33 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo blanco -->
+  <rect width="400" height="400" fill="#FFFFFF"/>
+
+  <!-- Círculo contenedor sutil -->
+  <circle cx="200" cy="200" r="180" fill="none" stroke="#E8232B" stroke-width="3" opacity="0.25"/>
+
+  <!-- Cuerpo / hombros (silueta minimalista) -->
+  <path d="M 90 320
+           C 90 250, 140 220, 200 220
+           C 260 220, 310 250, 310 320
+           L 310 340
+           C 310 345, 305 350, 300 350
+           L 100 350
+           C 95 350, 90 345, 90 340
+           Z"
+        fill="none" stroke="#E8232B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Cabeza -->
+  <circle cx="200" cy="150" r="62" fill="none" stroke="#E8232B" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Birrete (mortarboard) -->
+  <g stroke="#E8232B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- base del birrete -->
+    <path d="M 200 96 L 200 84"/>
+    <!-- tabla cuadrada del birrete -->
+    <path d="M 130 92 L 200 62 L 270 92 L 200 122 Z"/>
+    <!-- borla -->
+    <path d="M 270 92 L 270 130"/>
+    <circle cx="270" cy="140" r="7" fill="#E8232B" stroke="none"/>
+  </g>
+
+</svg>

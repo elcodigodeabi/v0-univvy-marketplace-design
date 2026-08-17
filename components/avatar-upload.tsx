@@ -73,7 +73,7 @@ export function AvatarUpload({ currentAvatarUrl, userId, onAvatarChange }: Avata
     }
   }
 
-  const displayUrl = preview || currentAvatarUrl || "/avatar-default.png"
+  const displayUrl = preview || currentAvatarUrl || "/avatar-universitario.svg"
 
   return (
     <div className="relative inline-block">

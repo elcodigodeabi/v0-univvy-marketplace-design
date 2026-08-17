@@ -21,7 +21,7 @@ export function AvatarDisplay({
   className = "",
 }: AvatarDisplayProps) {
   const { height, width } = sizeMap[size]
-  const displaySrc = src || "/avatar-default.png"
+  const displaySrc = src || "/avatar-universitario.svg"
 
   return (
     <div className={`relative rounded-full overflow-hidden flex-shrink-0 ${className}`}>
