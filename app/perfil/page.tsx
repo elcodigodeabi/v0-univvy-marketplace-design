@@ -68,6 +68,8 @@ export default function ProfilePage() {
         carrera: user.carrera || "",
         telefono: user.phone || "",
         biografia: user.bio || "",
+        ciudad: user.ubicacion || prev.ciudad,
+        precioHora: user.precio_por_hora != null ? String(user.precio_por_hora) : prev.precioHora,
       }))
       setAvatarUrl(user.avatar_url || null)
     }
@@ -91,20 +93,34 @@ export default function ProfilePage() {
         toast.info("Revisa tu nuevo correo para confirmar el cambio")
       }
 
+      const updates: Record<string, unknown> = {
+        first_name: profileData.first_name.trim(),
+        last_name: profileData.last_name.trim(),
+        full_name: `${profileData.first_name.trim()} ${profileData.last_name.trim()}`.trim(),
+        telefono: profileData.telefono.trim(),
+        bio: profileData.biografia.trim(),
+        universidad: profileData.universidad || null,
+        carrera: profileData.carrera || null,
+        ubicacion: profileData.ciudad.trim() || null,
+      }
+
+      if (user.tipo === "asesor" && profileData.precioHora) {
+        const precio = Number(profileData.precioHora)
+        if (Number.isFinite(precio) && precio > 0) {
+          updates.precio_por_hora = precio
+        }
+      }
+
       const { error } = await supabase
         .from("profiles")
-        .update({
-          full_name: `${profileData.first_name.trim()} ${profileData.last_name.trim()}`.trim(),
-          nombre: `${profileData.first_name.trim()} ${profileData.last_name.trim()}`.trim(),
-          phone: profileData.telefono.trim(),
-          descripcion: profileData.biografia.trim(),
-        })
+        .update(updates)
         .eq("id", user.id)
 
       if (error) throw error
       setIsEditing(false)
       toast.success("Perfil actualizado correctamente")
-    } catch {
+    } catch (err) {
+      console.error("[perfil] Error al guardar:", err)
       toast.error("No se pudo guardar el perfil. Intenta de nuevo.")
     } finally {
       setSaving(false)
