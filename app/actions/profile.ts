@@ -1,7 +1,6 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { put } from "@vercel/blob"
 
 export async function uploadAvatar(formData: FormData) {
   try {
@@ -30,25 +29,36 @@ export async function uploadAvatar(formData: FormData) {
       return { error: "No tienes permiso para actualizar este perfil" }
     }
 
-    // Generate unique filename
+    // Generate unique filename (folder = userId, required by storage RLS policies)
     const timestamp = Date.now()
-    const ext = extension
-    const filename = `avatars/${userId}/${timestamp}.${ext}`
+    const filePath = `${userId}/${timestamp}.${extension}`
 
-    // Upload to Blob Storage
-    const blob = await put(filename, file, {
-      access: "public",
-      addRandomSuffix: false,
-    })
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(filePath, file, {
+        contentType: file.type,
+        upsert: true,
+      })
 
-    if (!blob.url) {
+    if (uploadError) {
+      console.error("[v0] Error uploading avatar to storage:", uploadError)
       return { error: "Error al guardar la imagen" }
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(filePath)
+
+    const publicUrl = publicUrlData.publicUrl
+    if (!publicUrl) {
+      return { error: "Error al obtener la URL de la imagen" }
     }
 
     // Update profile in Supabase
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({ avatar_url: blob.url })
+      .update({ avatar_url: publicUrl })
       .eq("id", userId)
 
     if (updateError) {
@@ -56,7 +66,7 @@ export async function uploadAvatar(formData: FormData) {
       return { error: "Error al actualizar el perfil" }
     }
 
-    return { url: blob.url }
+    return { url: publicUrl }
   } catch (error) {
     console.error("[v0] Avatar upload error:", error)
     return { error: "Error al procesar la imagen" }
