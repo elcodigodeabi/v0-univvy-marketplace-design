@@ -2,7 +2,6 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { put } from '@vercel/blob'
 import { revalidatePath } from 'next/cache'
 
 // Phone number censorship regex — matches common formats
@@ -243,10 +242,24 @@ export async function sendFileMessage(chatId: string, formData: FormData) {
     return { error: 'Este chat ha finalizado' }
   }
 
-  const ext = extension
-  const path = `chats/${chatId}/${user.id}/${Date.now()}.${ext}`
+  // Path must start with user.id (required by storage RLS policies)
+  const path = `${user.id}/${chatId}/${Date.now()}.${extension}`
 
-  const blob = await put(path, file, { access: 'public' })
+  const { error: uploadError } = await supabase.storage
+    .from('chat-files')
+    .upload(path, file, { contentType: file.type, upsert: true })
+
+  if (uploadError) {
+    console.error('[v0] Error uploading chat file:', uploadError)
+    return { error: 'Error al subir el archivo' }
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from('chat-files')
+    .getPublicUrl(path)
+
+  const fileUrl = publicUrlData.publicUrl
+  if (!fileUrl) return { error: 'Error al obtener la URL del archivo' }
 
   const messageType = file.type.startsWith('image/')
     ? 'image'
@@ -261,7 +274,7 @@ export async function sendFileMessage(chatId: string, formData: FormData) {
       sender_id: user.id,
       content: file.name,
       message_type: messageType,
-      file_url: blob.url,
+      file_url: fileUrl,
       file_name: file.name,
       file_size: file.size,
     })
