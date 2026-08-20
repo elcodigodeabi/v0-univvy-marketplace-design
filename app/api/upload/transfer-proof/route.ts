@@ -1,4 +1,3 @@
-import { put } from "@vercel/blob"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
@@ -36,11 +35,27 @@ export async function POST(request: NextRequest) {
     }
 
     const ext = file.name.split(".").pop() || "jpg"
-    const fileName = `transfer-proofs/${user.id}/${Date.now()}.${ext}`
+    // Path must start with user.id (required by storage RLS policies)
+    const fileName = `${user.id}/${Date.now()}.${ext}`
 
-    const blob = await put(fileName, file, { access: "public" })
+    const { error: uploadError } = await supabase.storage
+      .from("transfer-proofs")
+      .upload(fileName, file, { contentType: file.type, upsert: true })
 
-    return NextResponse.json({ url: blob.url })
+    if (uploadError) {
+      console.error("[v0] Error uploading transfer proof:", uploadError)
+      return NextResponse.json({ error: "Error al subir el archivo" }, { status: 500 })
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("transfer-proofs")
+      .getPublicUrl(fileName)
+
+    if (!publicUrlData.publicUrl) {
+      return NextResponse.json({ error: "Error al obtener la URL del archivo" }, { status: 500 })
+    }
+
+    return NextResponse.json({ url: publicUrlData.publicUrl })
   } catch (error) {
     console.error("[upload] Error:", error)
     return NextResponse.json({ error: "Error al subir el archivo" }, { status: 500 })
