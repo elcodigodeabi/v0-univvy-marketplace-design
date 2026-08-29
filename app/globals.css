@@ -124,3 +124,139 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Loading screen (stickman) animations */
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes loading-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes loading-swing {
+  0%,
+  100% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(14deg);
+  }
+}
+@keyframes loading-step-l {
+  0%,
+  100% {
+    transform: rotate(3deg);
+  }
+  50% {
+    transform: rotate(-5deg);
+  }
+}
+@keyframes loading-step-r {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+@keyframes loading-run-l {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+@keyframes loading-run-r {
+  0%,
+  100% {
+    transform: rotate(6deg);
+  }
+  50% {
+    transform: rotate(-10deg);
+  }
+}
+@keyframes loading-pulse-dot {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+}
+@keyframes loading-floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+@keyframes loading-sparkle {
+  0%,
+  50%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.7) rotate(0deg);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.1) rotate(15deg);
+  }
+}
+@keyframes loading-jitter {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(1px, -1px);
+  }
+  50% {
+    transform: translate(-1px, 1px);
+  }
+  75% {
+    transform: translate(1px, 1px);
+  }
+}
+@keyframes loading-drop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+@keyframes loading-pop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+@keyframes loading-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
+}
