@@ -4,14 +4,16 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { createNotification, createNotifications } from "@/lib/notifications"
 import { releaseEscrowFunds, refundEscrowFunds } from "@/lib/escrow"
+import { splitAmount } from "@/lib/stripe"
 
-const PLATFORM_FEE_PERCENT = 0.10
-const AUTO_RELEASE_HOURS = 24
+// Política de Univvy: el pago se retiene 48h tras el fin de la clase.
+// Si nadie reclama ni cancela en ese plazo, se libera automáticamente al asesor.
+const AUTO_RELEASE_HOURS = 48
 
 function calculatePricing(pricePerHour: number, durationMinutes: number) {
   const totalCents = Math.round((pricePerHour * durationMinutes) / 60 * 100)
-  const platformFeeCents = Math.round(totalCents * PLATFORM_FEE_PERCENT)
-  const advisorAmountCents = totalCents - platformFeeCents
+  // Comisión del 13% (PLATFORM_FEE_BPS en lib/stripe.ts) descontada al asesor
+  const { platformFee: platformFeeCents, advisorAmount: advisorAmountCents } = splitAmount(totalCents)
   return { totalCents, platformFeeCents, advisorAmountCents }
 }
 

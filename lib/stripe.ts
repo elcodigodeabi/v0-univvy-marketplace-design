@@ -22,8 +22,12 @@ export function getStripe(): Stripe {
   return _stripe
 }
 
-/** Platform commission in basis points (e.g. 1500 = 15%) */
-export const PLATFORM_FEE_BPS = 1500
+/**
+ * Platform commission in basis points (1300 = 13%).
+ * Política de Univvy: 13% de comisión descontada al asesor tras cada clase exitosa.
+ * ÚNICA fuente de verdad para la comisión — no duplicar este valor en otro archivo.
+ */
+export const PLATFORM_FEE_BPS = 1300
 
 /** Compute platform fee and advisor net amount from a total in cents */
 export function splitAmount(totalCents: number) {

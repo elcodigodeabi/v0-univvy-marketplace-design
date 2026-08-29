@@ -1,6 +1,7 @@
 import "server-only"
 import { getStripe, splitAmount } from "@/lib/stripe"
 import { createServiceClient } from "@/lib/supabase/service"
+import { createNotification } from "@/lib/notifications"
 
 /**
  * Releases escrowed funds to the advisor's Stripe Connect account.
@@ -12,7 +13,9 @@ export async function releaseEscrowFunds(bookingId: string) {
 
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, student_id, advisor_id, price, stripe_payment_intent_id, stripe_transfer_id")
+    .select(
+      "id, student_id, advisor_id, price, advisor_amount, stripe_payment_intent_id, stripe_transfer_id"
+    )
     .eq("id", bookingId)
     .single()
 
@@ -32,15 +35,45 @@ export async function releaseEscrowFunds(bookingId: string) {
 
   const { data: advisorProfile } = await admin
     .from("profiles")
-    .select("stripe_account_id")
+    .select("stripe_account_id, stripe_onboarding_complete")
     .eq("id", booking.advisor_id)
     .single()
 
-  if (!advisorProfile?.stripe_account_id) {
-    return { error: "El asesor no tiene cuenta de pagos configurada" as const }
+  // Asesor sin Stripe configurado: el pago queda retenido como "pendiente de
+  // cobro" (pending_payout). Se libera automáticamente cuando complete el
+  // onboarding (webhook account.updated) o el admin puede registrar un pago
+  // manual por transferencia bancaria.
+  if (!advisorProfile?.stripe_account_id || !advisorProfile.stripe_onboarding_complete) {
+    const { data: payment } = await admin
+      .from("payments")
+      .select("id, status")
+      .eq("booking_id", booking.id)
+      .single()
+
+    if (payment && payment.status !== "pending_payout" && payment.status !== "released") {
+      await admin
+        .from("payments")
+        .update({ status: "pending_payout", pending_payout_at: new Date().toISOString() })
+        .eq("id", payment.id)
+
+      await createNotification({
+        userId: booking.advisor_id,
+        type: "payment_released",
+        title: "Tienes un pago pendiente de cobro",
+        body: "Se completó una clase pero aún no has configurado tu cuenta bancaria. Configura Stripe para recibir el pago automáticamente.",
+        data: { booking_id: booking.id },
+      })
+    }
+
+    return { pendingPayout: true as const }
   }
 
-  const { advisorAmount } = splitAmount(booking.price)
+  // Usa el monto congelado al crear la reserva (comisión pactada en su momento);
+  // si no existe, recalcula con la comisión vigente (13%).
+  const advisorAmount =
+    typeof booking.advisor_amount === "number" && booking.advisor_amount > 0
+      ? booking.advisor_amount
+      : splitAmount(booking.price).advisorAmount
   const latestCharge =
     typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id
 
