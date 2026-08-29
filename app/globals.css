@@ -260,3 +260,29 @@
     transform: translateX(280%);
   }
 }
+
+/* 404 fainted-stickman illustration */
+@keyframes notfound-swirl {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes notfound-breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.08);
+  }
+}
+@keyframes notfound-twitch {
+  0%,
+  92%,
+  100% {
+    transform: rotate(0deg);
+  }
+  96% {
+    transform: rotate(6deg);
+  }
+}
