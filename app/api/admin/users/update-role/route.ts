@@ -1,24 +1,21 @@
 import { createClient } from "@/lib/supabase/server"
+import { getAdminUser } from "@/lib/auth/require-admin"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
     const { userId, role } = await request.json()
 
-    if (!userId || !role || !["alumno", "asesor"].includes(role)) {
+    if (!userId || !role || !["alumno", "asesor", "administrador"].includes(role)) {
       return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 })
     }
 
-    const supabase = await createClient()
-
-    // Verify admin access
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    const admin = await getAdminUser()
+    if (!admin) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 })
     }
+
+    const supabase = await createClient()
 
     // Update user role in profiles
     const { error } = await supabase
