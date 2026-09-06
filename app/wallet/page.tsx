@@ -38,6 +38,7 @@ import {
 import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase/client"
+import { setPayPalPayoutMethod, setStripePayoutMethod } from "@/app/actions/payout-method"
 
 interface Transaction {
   id: string
@@ -67,6 +68,8 @@ interface StripeConnectStatus {
   onboardingComplete: boolean
 }
 
+type PayoutMethod = "stripe" | "paypal"
+
 export default function WalletPage() {
   const { user } = useAuth()
   const searchParams = useSearchParams()
@@ -92,6 +95,11 @@ export default function WalletPage() {
     accountType: null,
     onboardingComplete: false,
   })
+  const [payoutMethod, setPayoutMethod] = useState<PayoutMethod>("stripe")
+  const [paypalEmail, setPaypalEmail] = useState<string | null>(null)
+  const [paypalEmailInput, setPaypalEmailInput] = useState("")
+  const [isSavingPaypal, setIsSavingPaypal] = useState(false)
+  const [isSwitchingToStripe, setIsSwitchingToStripe] = useState(false)
 
   const fetchStripeStatus = useCallback(async () => {
     if (!user?.id) return
@@ -99,7 +107,9 @@ export default function WalletPage() {
     const supabase = createClient()
     const { data: profile } = await supabase
       .from("profiles")
-      .select("stripe_account_id, stripe_account_type, stripe_onboarding_complete")
+      .select(
+        "stripe_account_id, stripe_account_type, stripe_onboarding_complete, payout_method, paypal_email"
+      )
       .eq("id", user.id)
       .single()
 
@@ -109,6 +119,9 @@ export default function WalletPage() {
         accountType: (profile.stripe_account_type as "express" | "standard" | null) ?? null,
         onboardingComplete: profile.stripe_onboarding_complete === true,
       })
+      setPayoutMethod(profile.payout_method === "paypal" ? "paypal" : "stripe")
+      setPaypalEmail(profile.paypal_email ?? null)
+      setPaypalEmailInput(profile.paypal_email ?? "")
     }
   }, [user?.id])
 
@@ -314,6 +327,45 @@ export default function WalletPage() {
       })
     } finally {
       setIsDisconnecting(false)
+    }
+  }
+
+  const handleSavePaypalEmail = async () => {
+    setIsSavingPaypal(true)
+    try {
+      const result = await setPayPalPayoutMethod(paypalEmailInput)
+      if (!result.success) {
+        throw new Error(result.error || "No se pudo guardar tu correo de PayPal")
+      }
+      setPayoutMethod("paypal")
+      setPaypalEmail(paypalEmailInput.trim())
+      toast.success("PayPal configurado", {
+        description: "A partir de ahora recibirás tus pagos por PayPal.",
+      })
+    } catch (error) {
+      toast.error("No se pudo guardar tu correo de PayPal", {
+        description: error instanceof Error ? error.message : undefined,
+      })
+    } finally {
+      setIsSavingPaypal(false)
+    }
+  }
+
+  const handleSwitchToStripe = async () => {
+    setIsSwitchingToStripe(true)
+    try {
+      const result = await setStripePayoutMethod()
+      if (!result.success) {
+        throw new Error(result.error || "No se pudo cambiar el método de cobro")
+      }
+      setPayoutMethod("stripe")
+      toast.success("Método de cobro actualizado a Stripe")
+    } catch (error) {
+      toast.error("No se pudo cambiar a Stripe", {
+        description: error instanceof Error ? error.message : undefined,
+      })
+    } finally {
+      setIsSwitchingToStripe(false)
     }
   }
 
@@ -677,17 +729,75 @@ export default function WalletPage() {
             </CardContent>
           </Card>
 
-          {/* Stripe Connect Settings */}
+          {/* Payout Method Settings */}
           <Card className="border-gray-200 mt-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
                 Cuenta de Pagos
               </CardTitle>
-              <CardDescription>Conecta Stripe para poder recibir y retirar tus ganancias</CardDescription>
+              <CardDescription>Elige cómo quieres recibir tus ganancias: Stripe o PayPal</CardDescription>
             </CardHeader>
             <CardContent>
-              {stripeStatus.accountId && stripeStatus.onboardingComplete ? (
+              <div className="flex gap-2 mb-6">
+                <Button
+                  variant={payoutMethod === "stripe" ? "default" : "outline"}
+                  className={payoutMethod === "stripe" ? "bg-red-600 hover:bg-red-700 text-white" : ""}
+                  onClick={handleSwitchToStripe}
+                  disabled={payoutMethod === "stripe" || isSwitchingToStripe || !stripeStatus.accountId}
+                >
+                  {isSwitchingToStripe ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Stripe
+                  {payoutMethod === "stripe" && (
+                    <Badge className="ml-2 bg-white/20 text-white hover:bg-white/20">Activo</Badge>
+                  )}
+                </Button>
+                <Button
+                  variant={payoutMethod === "paypal" ? "default" : "outline"}
+                  className={payoutMethod === "paypal" ? "bg-[#0070ba] hover:bg-[#005ea6] text-white" : ""}
+                  onClick={() => setPayoutMethod("paypal")}
+                  disabled={isSavingPaypal}
+                >
+                  PayPal
+                  {payoutMethod === "paypal" && (
+                    <Badge className="ml-2 bg-white/20 text-white hover:bg-white/20">Activo</Badge>
+                  )}
+                </Button>
+              </div>
+
+              {payoutMethod === "paypal" ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="paypal-email">Correo de PayPal</Label>
+                    <Input
+                      id="paypal-email"
+                      type="email"
+                      placeholder="tucorreo@ejemplo.com"
+                      value={paypalEmailInput}
+                      onChange={(e) => setPaypalEmailInput(e.target.value)}
+                    />
+                    <p className="text-sm text-gray-500">
+                      Enviaremos tus ganancias a este correo usando PayPal Payouts.
+                    </p>
+                  </div>
+                  {paypalEmail && (
+                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 p-3 rounded-lg">
+                      <CheckCircle className="h-4 w-4" />
+                      PayPal conectado con {paypalEmail}
+                    </div>
+                  )}
+                  <Button
+                    className="bg-[#0070ba] hover:bg-[#005ea6] text-white"
+                    onClick={handleSavePaypalEmail}
+                    disabled={isSavingPaypal || !paypalEmailInput.trim()}
+                  >
+                    {isSavingPaypal ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    {paypalEmail ? "Actualizar correo de PayPal" : "Guardar y activar PayPal"}
+                  </Button>
+                </div>
+              ) : stripeStatus.accountId && stripeStatus.onboardingComplete ? (
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white rounded-lg border border-gray-200 flex items-center justify-center">
