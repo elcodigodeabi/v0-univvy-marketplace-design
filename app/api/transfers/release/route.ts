@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getStripe, splitAmount } from "@/lib/stripe"
+import { createPayout } from "@/lib/paypal"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 
@@ -83,14 +84,23 @@ export async function POST(request: Request) {
       )
     }
 
-    // Advisor's Connect account
+    // Advisor's payout configuration
     const { data: advisorProfile } = await admin
       .from("profiles")
-      .select("stripe_account_id, stripe_onboarding_complete")
+      .select("stripe_account_id, stripe_onboarding_complete, payout_method, paypal_email")
       .eq("id", booking.advisor_id)
       .single()
 
-    if (!advisorProfile?.stripe_account_id) {
+    const payoutMethod = advisorProfile?.payout_method === "paypal" ? "paypal" : "stripe"
+
+    if (payoutMethod === "paypal" && !advisorProfile?.paypal_email) {
+      return NextResponse.json(
+        { error: "El asesor no tiene un correo de PayPal configurado" },
+        { status: 409 }
+      )
+    }
+
+    if (payoutMethod === "stripe" && !advisorProfile?.stripe_account_id) {
       return NextResponse.json(
         { error: "El asesor no tiene cuenta de pagos configurada" },
         { status: 409 }
@@ -99,6 +109,58 @@ export async function POST(request: Request) {
 
     // Net amount for the advisor (price is in cents)
     const { advisorAmount } = splitAmount(booking.price)
+    const now = new Date().toISOString()
+
+    if (payoutMethod === "paypal") {
+      try {
+        const payout = await createPayout({
+          batchId: `booking-${booking.id}`,
+          recipientEmail: advisorProfile!.paypal_email!,
+          amountInCents: advisorAmount,
+          currency: "EUR",
+          note: `Pago Univvy - reserva ${booking.id}`,
+        })
+
+        await admin
+          .from("bookings")
+          .update({
+            stripe_transfer_id: `paypal:${payout.payoutBatchId}`,
+            transfer_released_at: now,
+            status: "completed",
+            escrow_released_at: now,
+          })
+          .eq("id", booking.id)
+
+        await admin
+          .from("payments")
+          .update({
+            status: "released",
+            payout_method: "paypal",
+            payout_note: `PayPal batch ${payout.payoutBatchId} (${payout.status})`,
+          })
+          .eq("booking_id", booking.id)
+
+        return NextResponse.json({
+          transferId: payout.payoutBatchId,
+          amount: advisorAmount,
+          method: "paypal",
+        })
+      } catch (payoutError) {
+        // Do not mark the booking as released if PayPal failed (e.g. Univvy's
+        // PayPal balance is insufficient). The student's escrowed funds stay
+        // untouched until this is retried.
+        const message =
+          payoutError instanceof Error ? payoutError.message : "Error al pagar por PayPal"
+        console.error("[v0] PayPal payout failed:", payoutError)
+
+        await admin
+          .from("payments")
+          .update({ payout_method: "paypal", payout_note: `Fallo: ${message}` })
+          .eq("booking_id", booking.id)
+
+        return NextResponse.json({ error: message }, { status: 502 })
+      }
+    }
 
     // Get the charge id to link the transfer to the original payment
     const latestCharge =
@@ -107,7 +169,7 @@ export async function POST(request: Request) {
     const transfer = await stripe.transfers.create({
       amount: advisorAmount,
       currency: "eur",
-      destination: advisorProfile.stripe_account_id,
+      destination: advisorProfile!.stripe_account_id!,
       source_transaction: latestCharge,
       metadata: {
         booking_id: booking.id,
@@ -115,8 +177,6 @@ export async function POST(request: Request) {
         student_id: booking.student_id,
       },
     })
-
-    const now = new Date().toISOString()
 
     await admin
       .from("bookings")
@@ -130,10 +190,10 @@ export async function POST(request: Request) {
 
     await admin
       .from("payments")
-      .update({ stripe_transfer_id: transfer.id, status: "released" })
+      .update({ stripe_transfer_id: transfer.id, status: "released", payout_method: "stripe" })
       .eq("booking_id", booking.id)
 
-    return NextResponse.json({ transferId: transfer.id, amount: advisorAmount })
+    return NextResponse.json({ transferId: transfer.id, amount: advisorAmount, method: "stripe" })
   } catch (error) {
     console.error("[v0] Transfer release error:", error)
     const message = error instanceof Error ? error.message : "Error interno"
