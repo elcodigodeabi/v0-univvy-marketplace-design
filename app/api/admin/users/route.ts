@@ -1,18 +1,15 @@
 import { createClient } from "@/lib/supabase/server"
+import { getAdminUser } from "@/lib/auth/require-admin"
 import { NextResponse } from "next/server"
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-
-    // Get current user to verify admin access (if needed)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    const admin = await getAdminUser()
+    if (!admin) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 })
     }
+
+    const supabase = await createClient()
 
     // Fetch all users from profiles
     const { data: users, error } = await supabase
