@@ -6,6 +6,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js"
+import type { StripeError } from "@stripe/stripe-js"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, Loader2, Lock } from "lucide-react"
 
@@ -22,7 +23,9 @@ export function PaymentForm({ bookingId }: PaymentFormProps) {
   const stripe = useStripe()
   const elements = useElements()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isPaymentElementReady, setIsPaymentElementReady] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [elementError, setElementError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,7 +63,32 @@ export function PaymentForm({ bookingId }: PaymentFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement options={{ layout: "tabs" }} />
+      {!isPaymentElementReady && !elementError && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+          Cargando opciones de pago seguras de Stripe...
+        </div>
+      )}
+
+      <PaymentElement
+        options={{ layout: { type: "tabs", defaultCollapsed: false } }}
+        onReady={() => {
+          setIsPaymentElementReady(true)
+          setElementError(null)
+        }}
+        onLoadError={({ error }: { error: StripeError }) => {
+          setElementError(
+            error.message ||
+              "Stripe no pudo cargar las opciones de pago. Revisa tu conexión e inténtalo de nuevo."
+          )
+        }}
+      />
+
+      {elementError && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <span>{elementError}</span>
+        </div>
+      )}
 
       {errorMessage && (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
@@ -71,7 +99,7 @@ export function PaymentForm({ bookingId }: PaymentFormProps) {
 
       <Button
         type="submit"
-        disabled={!stripe || isSubmitting}
+        disabled={!stripe || !elements || !isPaymentElementReady || !!elementError || isSubmitting}
         className="w-full bg-red-600 hover:bg-red-700 text-white"
         size="lg"
       >
