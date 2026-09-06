@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ stripe_account_id: accountId })
+        .update({ stripe_account_id: accountId, stripe_account_type: "express" })
         .eq("id", user.id)
 
       if (updateError) {
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 
       const { error: migrationError } = await supabase
         .from("profiles")
-        .update({ stripe_account_id: spanishAccount.id })
+        .update({ stripe_account_id: spanishAccount.id, stripe_account_type: "express" })
         .eq("id", user.id)
 
       if (migrationError) {

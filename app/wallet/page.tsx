@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +31,9 @@ import {
   Calendar,
   AlertCircle,
   Loader2,
+  ExternalLink,
+  Link2,
+  Unlink,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
@@ -57,13 +61,24 @@ interface WalletData {
   } | null
 }
 
+interface StripeConnectStatus {
+  accountId: string | null
+  accountType: "express" | "standard" | null
+  onboardingComplete: boolean
+}
+
 export default function WalletPage() {
   const { user } = useAuth()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [withdrawAmount, setWithdrawAmount] = useState("")
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false)
   const [isConnectingBank, setIsConnectingBank] = useState(false)
+  const [isConnectingExisting, setIsConnectingExisting] = useState(false)
+  const [isOpeningDashboard, setIsOpeningDashboard] = useState(false)
+  const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [walletData, setWalletData] = useState<WalletData>({
     availableBalance: 0,
@@ -72,6 +87,30 @@ export default function WalletPage() {
     pendingWithdrawal: 0,
     bankAccount: null,
   })
+  const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus>({
+    accountId: null,
+    accountType: null,
+    onboardingComplete: false,
+  })
+
+  const fetchStripeStatus = useCallback(async () => {
+    if (!user?.id) return
+
+    const supabase = createClient()
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_account_id, stripe_account_type, stripe_onboarding_complete")
+      .eq("id", user.id)
+      .single()
+
+    if (profile) {
+      setStripeStatus({
+        accountId: profile.stripe_account_id ?? null,
+        accountType: (profile.stripe_account_type as "express" | "standard" | null) ?? null,
+        onboardingComplete: profile.stripe_onboarding_complete === true,
+      })
+    }
+  }, [user?.id])
 
   useEffect(() => {
     async function fetchWalletData() {
@@ -125,6 +164,8 @@ export default function WalletPage() {
             }))
           )
         }
+
+        await fetchStripeStatus()
       } catch (err) {
         console.log("[v0] Error fetching wallet data:", err)
       } finally {
@@ -133,7 +174,37 @@ export default function WalletPage() {
     }
 
     fetchWalletData()
-  }, [user?.id])
+  }, [user?.id, fetchStripeStatus])
+
+  useEffect(() => {
+    const connect = searchParams.get("connect")
+    const onboarding = searchParams.get("onboarding")
+
+    if (connect === "success") {
+      toast.success("Cuenta Stripe conectada", {
+        description: "Ya puedes recibir pagos con tu cuenta Stripe existente.",
+      })
+      fetchStripeStatus()
+    } else if (connect === "denied") {
+      toast.info("Conexión cancelada", {
+        description: "No autorizaste la conexión con tu cuenta Stripe.",
+      })
+    } else if (connect === "error") {
+      toast.error("No se pudo conectar tu cuenta Stripe", {
+        description: "Inténtalo de nuevo en unos segundos.",
+      })
+    } else if (onboarding === "complete") {
+      toast.success("Configuración enviada", {
+        description: "Estamos verificando tu cuenta Stripe.",
+      })
+      fetchStripeStatus()
+    }
+
+    if (connect || onboarding) {
+      router.replace("/wallet")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const formatPrice = (cents: number) => {
     return `S/${(cents / 100).toFixed(2)}`
@@ -171,6 +242,78 @@ export default function WalletPage() {
             : "Inténtalo de nuevo en unos segundos.",
       })
       setIsConnectingBank(false)
+    }
+  }
+
+  const handleConnectExistingStripe = async () => {
+    setIsConnectingExisting(true)
+
+    try {
+      const response = await fetch("/api/connect/oauth/authorize", { method: "POST" })
+      const data = await response.json()
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "No se pudo iniciar la conexión con Stripe")
+      }
+
+      window.location.assign(data.url)
+    } catch (error) {
+      console.error("[v0] Stripe OAuth authorize error:", error)
+      toast.error("No se pudo conectar tu cuenta Stripe", {
+        description:
+          error instanceof Error && error.message
+            ? error.message
+            : "Inténtalo de nuevo en unos segundos.",
+      })
+      setIsConnectingExisting(false)
+    }
+  }
+
+  const handleOpenStripeDashboard = async () => {
+    if (stripeStatus.accountType === "standard") {
+      window.open("https://dashboard.stripe.com", "_blank", "noopener,noreferrer")
+      return
+    }
+
+    setIsOpeningDashboard(true)
+    try {
+      const response = await fetch("/api/connect/login-link", { method: "POST" })
+      const data = await response.json()
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "No se pudo abrir el panel de Stripe")
+      }
+
+      window.open(data.url, "_blank", "noopener,noreferrer")
+    } catch (error) {
+      console.error("[v0] Stripe login link error:", error)
+      toast.error("No se pudo abrir el panel de Stripe", {
+        description: error instanceof Error && error.message ? error.message : undefined,
+      })
+    } finally {
+      setIsOpeningDashboard(false)
+    }
+  }
+
+  const handleDisconnectStripe = async () => {
+    setIsDisconnecting(true)
+    try {
+      const response = await fetch("/api/connect/oauth/disconnect", { method: "POST" })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo desconectar la cuenta")
+      }
+
+      setStripeStatus({ accountId: null, accountType: null, onboardingComplete: false })
+      toast.success("Cuenta Stripe desconectada")
+    } catch (error) {
+      console.error("[v0] Stripe disconnect error:", error)
+      toast.error("No se pudo desconectar la cuenta", {
+        description: error instanceof Error && error.message ? error.message : undefined,
+      })
+    } finally {
+      setIsDisconnecting(false)
     }
   }
 
@@ -534,50 +677,105 @@ export default function WalletPage() {
             </CardContent>
           </Card>
 
-          {/* Bank Account Settings */}
+          {/* Stripe Connect Settings */}
           <Card className="border-gray-200 mt-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
-                Cuenta Bancaria
+                Cuenta de Pagos
               </CardTitle>
-              <CardDescription>Configura tu cuenta para recibir pagos</CardDescription>
+              <CardDescription>Conecta Stripe para poder recibir y retirar tus ganancias</CardDescription>
             </CardHeader>
             <CardContent>
-              {walletData.bankAccount ? (
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              {stripeStatus.accountId && stripeStatus.onboardingComplete ? (
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white rounded-lg border border-gray-200 flex items-center justify-center">
                       <Building className="h-6 w-6 text-gray-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{walletData.bankAccount.bank}</p>
+                      <p className="font-medium text-gray-900">
+                        Cuenta Stripe conectada
+                      </p>
                       <p className="text-sm text-gray-500">
-                        Cuenta {walletData.bankAccount.accountNumber} - {walletData.bankAccount.accountHolder}
+                        {stripeStatus.accountType === "standard" ? "Cuenta existente vinculada" : "Cuenta creada con Univvy"} - lista para recibir pagos
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline">Editar</Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={handleOpenStripeDashboard} disabled={isOpeningDashboard}>
+                      {isOpeningDashboard ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                      )}
+                      Ver panel de Stripe
+                    </Button>
+                    {stripeStatus.accountType === "standard" && (
+                      <Button variant="ghost" onClick={handleDisconnectStripe} disabled={isDisconnecting}>
+                        {isDisconnecting ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Unlink className="mr-2 h-4 w-4" />
+                        )}
+                        Desconectar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : stripeStatus.accountId && !stripeStatus.onboardingComplete ? (
+                <div className="text-center py-8 text-gray-500">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
+                  <p className="font-medium mb-2 text-gray-900">Verificación pendiente</p>
+                  <p className="text-sm mb-4">
+                    {stripeStatus.accountType === "standard"
+                      ? "Tu cuenta Stripe está conectada pero aún necesita completar información en su Dashboard."
+                      : "Aún necesitas completar tu configuración con Stripe para poder cobrar."}
+                  </p>
+                  <Button
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onClick={stripeStatus.accountType === "standard" ? handleOpenStripeDashboard : handleAddBankAccount}
+                    disabled={isConnectingBank || isOpeningDashboard}
+                  >
+                    {isConnectingBank || isOpeningDashboard ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    {stripeStatus.accountType === "standard" ? "Completar en Stripe" : "Continuar configuración"}
+                  </Button>
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <Building className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p className="font-medium mb-2">Sin cuenta bancaria configurada</p>
-                  <p className="text-sm mb-4">Agrega una cuenta bancaria para poder retirar tus ganancias.</p>
-                  <Button
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                    onClick={handleAddBankAccount}
-                    disabled={isConnectingBank}
-                  >
-                    {isConnectingBank ? (
-                      <>
+                  <p className="font-medium mb-2 text-gray-900">Sin cuenta de pagos configurada</p>
+                  <p className="text-sm mb-4">Conecta una cuenta Stripe que ya tengas o crea una nueva para poder retirar tus ganancias.</p>
+                  <div className="flex flex-col sm:flex-row justify-center gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={handleConnectExistingStripe}
+                      disabled={isConnectingExisting || isConnectingBank}
+                    >
+                      {isConnectingExisting ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Abriendo configuración...
-                      </>
-                    ) : (
-                      "Agregar Cuenta Bancaria"
-                    )}
-                  </Button>
+                      ) : (
+                        <Link2 className="mr-2 h-4 w-4" />
+                      )}
+                      Ya tengo cuenta Stripe
+                    </Button>
+                    <Button
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                      onClick={handleAddBankAccount}
+                      disabled={isConnectingBank || isConnectingExisting}
+                    >
+                      {isConnectingBank ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Abriendo configuración...
+                        </>
+                      ) : (
+                        "Crear cuenta nueva"
+                      )}
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
