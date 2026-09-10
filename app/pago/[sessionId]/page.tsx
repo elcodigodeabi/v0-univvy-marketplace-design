@@ -21,6 +21,7 @@ import {
 import { getBookingForPayment } from "@/app/actions/bookings"
 import { getStripeClient } from "@/lib/stripe-client"
 import { PaymentForm } from "@/components/payment-form"
+import { PayPalButton } from "@/components/paypal-button"
 
 type BookingSummary = Awaited<ReturnType<typeof getBookingForPayment>>
 
@@ -200,24 +201,23 @@ export default function PagoPage() {
                 <CardTitle className="text-lg text-gray-900">Método de pago</CardTitle>
               </CardHeader>
               <CardContent>
-                {clientSecret ? (
-                  <Elements
-                    stripe={getStripeClient()}
-                    options={{
-                      clientSecret,
-                      appearance: {
-                        theme: "stripe",
-                        variables: { colorPrimary: "#dc2626" },
-                      },
-                    }}
-                  >
-                    <PaymentForm bookingId={bookingId} />
-                  </Elements>
-                ) : (
-                  <div className="flex items-center justify-center py-10">
-                    <Loader2 className="h-6 w-6 animate-spin text-red-600" />
-                  </div>
-                )}
+                <div className="space-y-6">
+                  {clientSecret ? (
+                    <Elements
+                      stripe={getStripeClient()}
+                      options={{
+                        clientSecret,
+                        appearance: { theme: "stripe", variables: { colorPrimary: "#dc2626" } },
+                      }}
+                    >
+                      <PaymentForm bookingId={bookingId} />
+                    </Elements>
+                  ) : (
+                    <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-red-600" /></div>
+                  )}
+                  <div className="relative flex items-center gap-3 text-xs text-muted-foreground"><div className="h-px flex-1 bg-border" /><span>o paga con</span><div className="h-px flex-1 bg-border" /></div>
+                  <PayPalButton bookingId={bookingId} />
+                </div>
               </CardContent>
             </Card>
           </div>
