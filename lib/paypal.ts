@@ -3,7 +3,7 @@
 // PayPal email. This does not move the student's Stripe payment directly —
 // Univvy is responsible for keeping enough balance in its PayPal account.
 
-const PAYPAL_MODE = process.env.PAYPAL_MODE === "live" ? "live" : "sandbox"
+const PAYPAL_MODE = (process.env.PAYPAL_MODE || "sandbox").trim().toLowerCase() === "live" ? "live" : "sandbox"
 
 const PAYPAL_BASE_URL =
   PAYPAL_MODE === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com"
@@ -20,8 +20,8 @@ async function getAccessToken(): Promise<string> {
     return cachedToken.token
   }
 
-  const clientId = process.env.PAYPAL_CLIENT_ID
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET
+  const clientId = process.env.PAYPAL_CLIENT_ID?.trim()
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET?.trim()
 
   if (!clientId || !clientSecret) {
     throw new Error("PayPal no está configurado (faltan PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET)")
@@ -41,6 +41,9 @@ async function getAccessToken(): Promise<string> {
   if (!response.ok) {
     const text = await response.text()
     console.error("[v0] PayPal OAuth error:", text)
+    if (response.status === 401) {
+      throw new Error(`Credenciales PayPal inválidas para el modo ${PAYPAL_MODE}. Verifica que Client ID y Secret pertenezcan a la misma app.`)
+    }
     throw new Error("No se pudo autenticar con PayPal")
   }
 
