@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { Elements } from "@stripe/react-stripe-js"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -19,8 +18,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { getBookingForPayment } from "@/app/actions/bookings"
-import { getStripeClient } from "@/lib/stripe-client"
-import { PaymentForm } from "@/components/payment-form"
+import { StripePaymentSection } from "@/components/stripe-payment-section"
 import { PayPalButton } from "@/components/paypal-button"
 
 type BookingSummary = Awaited<ReturnType<typeof getBookingForPayment>>
@@ -203,15 +201,7 @@ export default function PagoPage() {
               <CardContent>
                 <div className="space-y-6">
                   {clientSecret ? (
-                    <Elements
-                      stripe={getStripeClient()}
-                      options={{
-                        clientSecret,
-                        appearance: { theme: "stripe", variables: { colorPrimary: "#dc2626" } },
-                      }}
-                    >
-                      <PaymentForm bookingId={bookingId} />
-                    </Elements>
+                    <StripePaymentSection bookingId={bookingId} clientSecret={clientSecret} />
                   ) : (
                     <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-red-600" /></div>
                   )}
