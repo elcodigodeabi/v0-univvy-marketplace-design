@@ -143,3 +143,53 @@ export async function getPayoutItemStatus(payoutItemId: string) {
 export function isValidPayPalEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
+
+interface PayPalOrderResponse {
+  id: string
+  status: string
+  purchase_units?: Array<{ amount?: { value?: string; currency_code?: string } }>
+}
+
+async function paypalRequest<T>(path: string, init: RequestInit): Promise<T> {
+  const token = await getAccessToken()
+  const response = await fetch(`${PAYPAL_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  })
+  const data = await response.json()
+  if (!response.ok) {
+    console.error("[v0] PayPal orders error:", data)
+    throw new Error(data?.message || data?.details?.[0]?.description || "Error de PayPal")
+  }
+  return data as T
+}
+
+export async function createPayPalOrder(params: {
+  bookingId: string
+  amountInCents: number
+  currency: string
+  description: string
+}) {
+  return paypalRequest<PayPalOrderResponse>("/v2/checkout/orders", {
+    method: "POST",
+    body: JSON.stringify({
+      intent: "CAPTURE",
+      purchase_units: [{
+        reference_id: params.bookingId,
+        description: params.description.slice(0, 127),
+        amount: { currency_code: params.currency.toUpperCase(), value: (params.amountInCents / 100).toFixed(2) },
+      }],
+    }),
+  })
+}
+
+export async function capturePayPalOrder(orderId: string) {
+  return paypalRequest<PayPalOrderResponse>(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
+    method: "POST",
+    body: "{}",
+  })
+}
