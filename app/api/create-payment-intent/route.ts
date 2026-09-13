@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     // Booking must belong to this student
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, student_id, advisor_id, price, status, stripe_payment_intent_id, subject")
+      .select("id, student_id, advisor_id, price, currency, status, stripe_payment_intent_id, subject")
       .eq("id", bookingId)
       .eq("student_id", user.id)
       .single()
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 })
     }
 
-    if (!["pending_request", "pending_payment", "confirmed"].includes(booking.status)) {
+    if (!["pending_request", "pending_payment"].includes(booking.status)) {
       return NextResponse.json(
         { error: "Esta reserva no admite pagos en su estado actual" },
         { status: 409 }

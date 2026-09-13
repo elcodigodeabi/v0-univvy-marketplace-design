@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       .select("id, student_id, price, currency, status, subject, title")
       .eq("id", bookingId).eq("student_id", user.id).single()
     if (!booking) return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 })
-    if (!["pending_request", "pending_payment", "confirmed"].includes(booking.status)) {
+    if (!["pending_request", "pending_payment"].includes(booking.status)) {
       return NextResponse.json({ error: "Esta reserva no admite pagos" }, { status: 409 })
     }
     if (!Number.isInteger(booking.price) || booking.price <= 0) {

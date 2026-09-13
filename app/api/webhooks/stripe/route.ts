@@ -64,7 +64,17 @@ export async function POST(request: Request) {
         const studentId = pi.metadata?.student_id
         const advisorId = pi.metadata?.advisor_id
 
-        if (bookingId) {
+        if (bookingId && pi.status === "succeeded") {
+          const { data: booking } = await supabase
+            .from("bookings")
+            .select("id, stripe_payment_intent_id, student_id, advisor_id")
+            .eq("id", bookingId)
+            .eq("student_id", studentId || "")
+            .eq("advisor_id", advisorId || "")
+            .single()
+
+          if (!booking || (booking.stripe_payment_intent_id && booking.stripe_payment_intent_id !== pi.id)) break
+
           // Money captured and held on platform balance (escrow)
           const { data: updatedBookings } = await supabase
             .from("bookings")

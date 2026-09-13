@@ -250,6 +250,13 @@ export default function MisSesionesPage() {
           )}
 
           <div className="flex gap-2">
+            {b.status === "pending_payment" && (
+              <Button asChild className="flex-1 bg-red-600 hover:bg-red-700 text-white">
+                <Link href={`/pago/${b.id}`}>
+                  Completar pago
+                </Link>
+              </Button>
+            )}
             {b.status === "confirmed" && !isSessionPast(b.scheduled_at) && b.modalidad === "virtual" && b.meeting_link && (
               <Button asChild className="flex-1 bg-red-600 hover:bg-red-700 text-white">
                 <a href={b.meeting_link} target="_blank" rel="noopener noreferrer">
