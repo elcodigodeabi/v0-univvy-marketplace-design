@@ -26,7 +26,7 @@ export function UserMenu({ variant = "alumno" }: UserMenuProps) {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="flex items-center gap-2 h-auto py-2">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.avatar || "/placeholder.svg"} />
+            {user?.avatar ? <AvatarImage src={user.avatar} alt={`Foto de ${user.nombre}`} /> : null}
             <AvatarFallback className="bg-red-100 text-red-600 text-sm">
               {user?.iniciales || "U"}
             </AvatarFallback>

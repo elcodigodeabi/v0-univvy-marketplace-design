@@ -31,6 +31,7 @@ import { getOrCreateChatByBooking } from "@/app/actions/chat"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { ReceiptDialog } from "@/components/receipt-dialog"
+import { SessionFeedbackDialog } from "@/components/session-feedback-dialog"
 
 type Booking = Awaited<ReturnType<typeof getMyBookings>>[number]
 
@@ -266,10 +267,7 @@ export default function MisSesionesPage() {
               </Button>
             )}
             {b.status === "completed" && (
-              <Button className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white">
-                <Star className="h-4 w-4 mr-2" />
-                Calificar asesor
-              </Button>
+              <SessionFeedbackDialog bookingId={b.id} advisorName={advisorName} />
             )}
             {b.status === "confirmed" && (
               <Button

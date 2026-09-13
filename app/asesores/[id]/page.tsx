@@ -1,6 +1,7 @@
 "use client"
 
 import { useParams } from "next/navigation"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,6 +23,8 @@ import {
   UserX,
 } from "lucide-react"
 import { useAsesor, type DayAvailability } from "@/hooks/use-asesores"
+import { getAdvisorReviews } from "@/app/actions/reviews"
+import { RatingStars } from "@/components/session-feedback-dialog"
 
 const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
@@ -39,6 +42,11 @@ function formatAvailabilityText(disponibilidad: Record<string, DayAvailability> 
 export default function AsesorProfilePage() {
   const params = useParams<{ id: string }>()
   const { asesor, loading, error } = useAsesor(params.id || "")
+  const [reviews, setReviews] = useState<any[]>([])
+
+  useEffect(() => {
+    if (params.id) getAdvisorReviews(params.id).then(setReviews).catch(() => setReviews([]))
+  }, [params.id])
 
   if (loading) {
     return (
@@ -263,12 +271,7 @@ export default function AsesorProfilePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Star className="h-12 w-12 text-gray-300 mb-4" />
-                  <p className="text-gray-600">
-                    Este asesor aún no tiene reseñas. ¡Sé el primero en dejar una!
-                  </p>
-                </div>
+                {reviews.length === 0 ? <div className="flex flex-col items-center justify-center py-8 text-center"><Star className="h-12 w-12 text-gray-300 mb-4" /><p className="text-gray-600">Este asesor aún no tiene reseñas.</p></div> : <div className="space-y-4">{reviews.map((review) => <div key={review.id} className="border-b pb-4 last:border-0"><div className="flex items-center justify-between"><span className="font-medium">{review.reviewer?.full_name || "Alumno"}</span><RatingStars value={review.rating} /></div>{review.comment && <p className="text-sm text-gray-600 mt-2">{review.comment}</p>}</div>)}</div>}
               </CardContent>
             </Card>
           </div>

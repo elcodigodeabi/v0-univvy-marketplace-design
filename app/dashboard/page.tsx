@@ -20,6 +20,7 @@ interface Session {
   id: string
   asesor_id: string
   asesor_nombre: string
+  asesor_avatar_url: string | null
   materia: string
   fecha: string
   hora: string
@@ -82,7 +83,7 @@ export default function DashboardPage() {
         // Try to fetch upcoming sessions for the student
         const { data, error } = await supabase
           .from("bookings")
-          .select("*")
+          .select("*, advisor:profiles!bookings_advisor_id_fkey(avatar_url)")
           .eq("student_id", user.id)
           .gte("scheduled_at", new Date().toISOString())
           .order("scheduled_at", { ascending: true })
@@ -95,6 +96,7 @@ export default function DashboardPage() {
               id: s.id,
               asesor_id: s.advisor_id,
               asesor_nombre: s.advisor_name || "Asesor",
+              asesor_avatar_url: Array.isArray(s.advisor) ? s.advisor[0]?.avatar_url || null : s.advisor?.avatar_url || null,
               materia: s.subject || "Asesoría",
               fecha: scheduledDate ? scheduledDate.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : "",
               hora: scheduledDate ? scheduledDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : "",
@@ -227,6 +229,7 @@ export default function DashboardPage() {
                       >
                         <div className="flex items-center gap-4">
                           <Avatar className="h-12 w-12">
+                            {sesion.asesor_avatar_url ? <AvatarImage src={sesion.asesor_avatar_url} alt={`Foto de ${sesion.asesor_nombre}`} /> : null}
                             <AvatarFallback className="bg-red-100 text-red-600">
                               {sesion.asesor_nombre
                                 .split(" ")
