@@ -21,6 +21,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Importe de reserva inválido" }, { status: 422 })
     }
 
+    if (!["pending_request", "pending_payment"].includes(booking.status)) {
+      return NextResponse.json({ error: "Esta reserva ya no admite captura de pago" }, { status: 409 })
+    }
+
     const order = await capturePayPalOrder(orderId)
     const captured = order.status === "COMPLETED"
     if (!captured) return NextResponse.json({ error: "PayPal no confirmó el pago", status: order.status }, { status: 402 })

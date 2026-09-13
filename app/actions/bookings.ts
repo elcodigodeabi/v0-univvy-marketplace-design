@@ -72,30 +72,34 @@ export async function createBooking(params: {
 
     const title = params.subject ? `Asesoría: ${params.subject}` : "Asesoría"
 
-    // ─── Validate no overlapping bookings for this student ───────────────────
-    const requestedStart = new Date(params.scheduledAt)
-    const requestedEnd = new Date(requestedStart.getTime() + params.durationMinutes * 60 * 1000)
+    if (!Number.isInteger(params.durationMinutes) || params.durationMinutes <= 0 || params.durationMinutes > 240) {
+      throw new Error("La duración de la sesión no es válida")
+    }
+    if (!Number.isFinite(params.pricePerHour) || params.pricePerHour <= 0) {
+      throw new Error("El precio del asesor no es válido")
+    }
+    if (scheduledDate <= new Date()) {
+      throw new Error("La fecha de la sesión debe ser futura")
+    }
 
+    // This check improves the UX. The database exclusion constraint in
+    // 009_booking_slot_protection.sql is the authoritative concurrency guard.
+    const requestedStart = scheduledDate
+    const requestedEnd = new Date(requestedStart.getTime() + params.durationMinutes * 60 * 1000)
     const { data: conflictingBookings, error: conflictError } = await supabase
       .from("bookings")
-      .select("id, scheduled_at, duration_minutes, status")
-      .eq("student_id", user.id)
+      .select("id, scheduled_at, duration_minutes, student_id")
+      .eq("advisor_id", params.advisorId)
       .in("status", ["pending_request", "pending_payment", "confirmed", "in_progress"])
+      .lt("scheduled_at", requestedEnd.toISOString())
 
-    if (conflictError) {
-      console.error("[v0] Error checking booking conflicts:", conflictError)
-    } else if (conflictingBookings && conflictingBookings.length > 0) {
-      for (const existing of conflictingBookings) {
-        const existingStart = new Date(existing.scheduled_at)
-        const existingEnd = new Date(existingStart.getTime() + existing.duration_minutes * 60 * 1000)
-
-        // Check if time slots overlap
-        if (requestedStart < existingEnd && requestedEnd > existingStart) {
-          throw new Error(
-            `Ya tienes una sesión programada en ese horario. Por favor elige otro horario.`
-          )
-        }
-      }
+    if (conflictError) throw new Error("No se pudo comprobar la disponibilidad del asesor")
+    if (conflictingBookings?.some((existing) => {
+      const existingStart = new Date(existing.scheduled_at)
+      const existingEnd = new Date(existingStart.getTime() + existing.duration_minutes * 60 * 1000)
+      return requestedStart < existingEnd && requestedEnd > existingStart
+    })) {
+      throw new Error("Ese horario ya está ocupado por otra reserva del asesor. Elige otro horario.")
     }
 
     const { data: booking, error: bookingError } = await supabase
@@ -106,14 +110,14 @@ export async function createBooking(params: {
         title,
         subject: params.subject,
         notes: params.notes,
-        scheduled_at: params.scheduledAt,
+        scheduled_at: scheduledDate.toISOString(),
         duration_minutes: params.durationMinutes,
         modalidad: params.modalidad,
         price: totalCents,
         platform_fee: platformFeeCents,
         advisor_amount: advisorAmountCents,
         currency: "EUR",
-        status: "pending_request",
+        status: "pending_payment",
         auto_release_at: autoReleaseAt.toISOString(),
         advisor_name: params.advisorName,
         student_name: studentProfile?.full_name || user.email?.split("@")[0] || "Estudiante",
@@ -122,18 +126,15 @@ export async function createBooking(params: {
       .single()
 
     if (bookingError || !booking) {
-      console.error("[v0] Booking insert error:", bookingError)
-      if (bookingError?.code === "23503") {
-        // Foreign key violation: advisor_id doesn't reference a real profile
-        if (bookingError.message?.includes("advisor_id")) {
-          throw new Error("Este asesor no está disponible para reservas")
-        }
-        throw new Error("No se pudo crear la reserva. Verifica tu sesión e intenta de nuevo.")
+      if (bookingError?.code === "23P01") {
+        throw new Error("Ese horario acaba de ser reservado por otra persona. Elige otro horario.")
+      }
+      if (bookingError?.code === "23503" && bookingError.message?.includes("advisor_id")) {
+        throw new Error("Este asesor no está disponible para reservas")
       }
       throw new Error(bookingError?.message || "Error al crear la reserva")
     }
 
-    // Insert payment record as pending
     const { error: paymentError } = await supabase.from("payments").insert({
       booking_id: booking.id,
       payer_id: booking.student_id,
@@ -146,7 +147,8 @@ export async function createBooking(params: {
     })
 
     if (paymentError) {
-      console.error("[v0] Payment insert error:", paymentError)
+      await supabase.from("bookings").delete().eq("id", booking.id).eq("student_id", user.id)
+      throw new Error("No se pudo preparar el pago de la reserva")
     }
 
     revalidatePath("/mis-sesiones")
@@ -524,10 +526,11 @@ export async function acceptBookingRequest(bookingId: string) {
       console.error("[v0] Error creating chat:", chatError)
     }
 
-    // Update booking status to confirmed
+    // Accepting a request never confirms payment. Only a verified payment
+  // webhook may transition a booking to confirmed.
   const { error: updateError } = await supabase
     .from("bookings")
-    .update({ status: "confirmed", updated_at: new Date().toISOString() })
+    .update({ status: "pending_payment", updated_at: new Date().toISOString() })
     .eq("id", bookingId)
 
   if (updateError) throw updateError
