@@ -252,8 +252,16 @@ export default function DashboardPage() {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" className="border-gray-300 bg-transparent">
-                            <MessageSquare className="h-4 w-4" />
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            className="border-gray-300 bg-transparent"
+                            aria-label={`Abrir mensajes con ${sesion.asesor_nombre}`}
+                          >
+                            <Link href={`/mensajes?chat=${sesion.id}`}>
+                              <MessageSquare className="h-4 w-4" />
+                            </Link>
                           </Button>
                           <Button
                             asChild
