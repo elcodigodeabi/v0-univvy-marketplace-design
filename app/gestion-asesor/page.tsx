@@ -351,10 +351,10 @@ export default function GestionAsesorPage() {
                   <div className="space-y-2">
                     <Label htmlFor="precio" className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-green-600" />
-                      Precio por hora (en soles)
+                      Precio por hora (en euros)
                     </Label>
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-600">S/</span>
+                      <span className="text-gray-600">€</span>
                       <Input
                         id="precio"
                         type="number"
