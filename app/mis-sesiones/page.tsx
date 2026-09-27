@@ -28,7 +28,7 @@ import { MobileNav } from "@/components/mobile-nav"
 import { useRoleGuard } from "@/hooks/use-role-guard"
 import { getMyBookings, studentConfirmSession } from "@/app/actions/bookings"
 import { getOrCreateChatByBooking } from "@/app/actions/chat"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { ReceiptDialog } from "@/components/receipt-dialog"
 import { SessionFeedbackDialog } from "@/components/session-feedback-dialog"
@@ -94,6 +94,8 @@ function isSessionPast(scheduledAt: string) {
 export default function MisSesionesPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const selectedBookingId = searchParams.get("booking")
   const { authorized, checking } = useRoleGuard("alumno")
   const [activeTab, setActiveTab] = useState("proximas")
   const [loading, setLoading] = useState(true)
@@ -120,6 +122,22 @@ export default function MisSesionesPage() {
       setLoading(false)
     })
   }, [user?.id])
+
+  useEffect(() => {
+    if (!selectedBookingId || loading) return
+    const booking = bookings.find((item) => item.id === selectedBookingId)
+    if (!booking) return
+
+    const isPast = isSessionPast(booking.scheduled_at)
+    if (["completed", "refunded"].includes(booking.status)) setActiveTab("completadas")
+    else if (["cancelled", "disputed"].includes(booking.status)) setActiveTab("canceladas")
+    else if (isPast) setActiveTab("confirmar")
+    else setActiveTab("proximas")
+
+    requestAnimationFrame(() => {
+      document.getElementById(`booking-${selectedBookingId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })
+    })
+  }, [selectedBookingId, bookings, loading])
 
   const handleConfirm = (bookingId: string, occurred: boolean) => {
     setConfirmingId(bookingId)
@@ -159,7 +177,11 @@ export default function MisSesionesPage() {
       b.student_confirmed === null
 
     return (
-      <Card key={b.id} className="border-gray-200 hover:shadow-md transition-shadow">
+      <Card
+        id={`booking-${b.id}`}
+        key={b.id}
+        className={`border-gray-200 hover:shadow-md transition-shadow ${selectedBookingId === b.id ? "ring-2 ring-red-500 ring-offset-2" : ""}`}
+      >
         <CardContent className="p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-start gap-4">
