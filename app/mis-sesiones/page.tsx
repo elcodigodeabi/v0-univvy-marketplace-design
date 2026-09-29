@@ -22,11 +22,22 @@ import {
   Shield,
   ThumbsUp,
   ThumbsDown,
+  Eye,
+  Pencil,
+  Ban,
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useAuth } from "@/hooks/use-auth"
 import { MobileNav } from "@/components/mobile-nav"
 import { useRoleGuard } from "@/hooks/use-role-guard"
-import { getMyBookings, studentConfirmSession } from "@/app/actions/bookings"
+import { cancelBooking, getMyBookings, studentConfirmSession } from "@/app/actions/bookings"
 import { getOrCreateChatByBooking } from "@/app/actions/chat"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
@@ -103,6 +114,8 @@ export default function MisSesionesPage() {
   const [confirming, startConfirming] = useTransition()
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [openingChat, setOpeningChat] = useState<string | null>(null)
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [cancelling, setCancelling] = useState(false)
 
   const handleOpenChat = async (bookingId: string) => {
     setOpeningChat(bookingId)
@@ -138,6 +151,22 @@ export default function MisSesionesPage() {
       document.getElementById(`booking-${selectedBookingId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })
     })
   }, [selectedBookingId, bookings, loading])
+
+  const handleCancel = async () => {
+    if (!selectedBooking) return
+    setCancelling(true)
+    try {
+      await cancelBooking(selectedBooking.id, "Cancelada por el alumno")
+      const updated = await getMyBookings()
+      setBookings(updated)
+      setSelectedBooking(null)
+      toast.success("La clase fue cancelada y se procesará el reembolso si corresponde.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo cancelar la clase.")
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   const handleConfirm = (bookingId: string, occurred: boolean) => {
     setConfirmingId(bookingId)
@@ -272,7 +301,15 @@ export default function MisSesionesPage() {
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              className="border-red-200 text-red-600 hover:bg-red-50 bg-transparent"
+              onClick={() => setSelectedBooking(b)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Ver más
+            </Button>
             {b.status === "pending_payment" && (
               <Button asChild className="flex-1 bg-red-600 hover:bg-red-700 text-white">
                 <Link href={`/pago/${b.id}`}>
@@ -459,6 +496,56 @@ export default function MisSesionesPage() {
         </div>
       </main>
       <MobileNav variant="student" />
+
+      <Dialog open={Boolean(selectedBooking)} onOpenChange={(open) => !open && setSelectedBooking(null)}>
+        <DialogContent className="sm:max-w-md">
+          {selectedBooking && (() => {
+            const advisor = selectedBooking.advisor as any
+            const advisorName = advisor?.full_name || selectedBooking.advisor_name || "Asesor"
+            const start = new Date(selectedBooking.scheduled_at)
+            const end = new Date(start.getTime() + selectedBooking.duration_minutes * 60 * 1000)
+            const canManage = ["confirmed", "pending_payment"].includes(selectedBooking.status) && !isSessionPast(selectedBooking.scheduled_at)
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Detalle de la clase</DialogTitle>
+                  <DialogDescription>
+                    Revisa la información de tu asesoría con {advisorName}.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  <div className="rounded-lg bg-red-50 p-4">
+                    <p className="font-semibold text-gray-900">{selectedBooking.subject || selectedBooking.title}</p>
+                    <p className="text-sm text-gray-600 mt-1">{advisorName}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-start gap-2"><Calendar className="h-4 w-4 mt-0.5 text-red-600" /><span><strong>Fecha</strong><br />{formatDate(selectedBooking.scheduled_at)}</span></div>
+                    <div className="flex items-start gap-2"><Clock className="h-4 w-4 mt-0.5 text-red-600" /><span><strong>Horario</strong><br />{formatTime(selectedBooking.scheduled_at)} – {formatTime(end.toISOString())}</span></div>
+                    <div className="flex items-start gap-2"><>{selectedBooking.modalidad === "virtual" ? <Video className="h-4 w-4 mt-0.5 text-red-600" /> : <MapPin className="h-4 w-4 mt-0.5 text-red-600" />}</><span><strong>Modalidad</strong><br />{selectedBooking.modalidad === "virtual" ? "Virtual" : selectedBooking.location || "Presencial"}</span></div>
+                    <div><strong>Costo</strong><br /><span className="text-lg font-bold text-gray-900">{formatPrice(selectedBooking.price)}</span></div>
+                  </div>
+                  <div className="flex items-center justify-between border-t pt-4 text-sm">
+                    <span className="text-gray-500">Estado</span>{getStatusBadge(selectedBooking.status)}
+                  </div>
+                </div>
+                <DialogFooter className="sm:justify-between">
+                  {canManage ? (
+                    <>
+                      <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 bg-transparent" onClick={handleCancel} disabled={cancelling}>
+                        {cancelling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Ban className="h-4 w-4 mr-2" />}
+                        {cancelling ? "Cancelando..." : "Cancelar clase"}
+                      </Button>
+                      <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
+                        <Link href={`/agendar/${advisor?.id || selectedBooking.advisor_id}`}><Pencil className="h-4 w-4 mr-2" />Modificar fecha y horario</Link>
+                      </Button>
+                    </>
+                  ) : <Button onClick={() => setSelectedBooking(null)}>Cerrar</Button>}
+                </DialogFooter>
+              </>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
