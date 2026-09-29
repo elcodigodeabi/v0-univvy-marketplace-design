@@ -147,6 +147,9 @@ export default function MisSesionesPage() {
     else if (isPast) setActiveTab("confirmar")
     else setActiveTab("proximas")
 
+    // Abrir directamente el detalle cuando se llega desde "Ver más".
+    setSelectedBooking(booking)
+
     requestAnimationFrame(() => {
       document.getElementById(`booking-${selectedBookingId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })
     })
