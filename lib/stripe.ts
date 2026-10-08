@@ -22,8 +22,12 @@ export function getStripe(): Stripe {
   return _stripe
 }
 
-/** Platform commission in basis points (e.g. 1500 = 15%) */
-export const PLATFORM_FEE_BPS = 1500
+/**
+ * Platform commission in basis points (1000 = 10%). Single source of truth:
+ * booking creation, the payments table and the transfer to the advisor all
+ * derive their amounts from this value.
+ */
+export const PLATFORM_FEE_BPS = 1000
 
 /** Compute platform fee and advisor net amount from a total in cents */
 export function splitAmount(totalCents: number) {

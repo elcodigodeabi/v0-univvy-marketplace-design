@@ -4,14 +4,13 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { createNotification, createNotifications } from "@/lib/notifications"
 import { releaseEscrowFunds, refundEscrowFunds } from "@/lib/escrow"
+import { splitAmount } from "@/lib/stripe"
 
-const PLATFORM_FEE_PERCENT = 0.10
 const AUTO_RELEASE_HOURS = 24
 
 function calculatePricing(pricePerHour: number, durationMinutes: number) {
   const totalCents = Math.round((pricePerHour * durationMinutes) / 60 * 100)
-  const platformFeeCents = Math.round(totalCents * PLATFORM_FEE_PERCENT)
-  const advisorAmountCents = totalCents - platformFeeCents
+  const { platformFee: platformFeeCents, advisorAmount: advisorAmountCents } = splitAmount(totalCents)
   return { totalCents, platformFeeCents, advisorAmountCents }
 }
 
@@ -315,15 +314,37 @@ async function resolveEscrowIfReady(bookingId: string) {
   if (bothConfirmed) {
     await supabase
       .from("bookings")
-      .update({ status: "completed", escrow_released_at: new Date().toISOString() })
+      .update({ status: "completed" })
       .eq("id", bookingId)
 
     const result = await releaseEscrowFunds(bookingId)
 
-    await supabase.rpc("increment_advisor_sessions", { advisor_id: booking.advisor_id }).catch(() => {})
+    const { error: sessionsError } = await supabase.rpc("increment_advisor_sessions", {
+      advisor_id: booking.advisor_id,
+    })
+    if (sessionsError) {
+      console.error("[v0] No se pudo incrementar sesiones del asesor:", sessionsError.message)
+    }
 
     if ("error" in result) {
       console.error("[v0] Error liberando pago en garantía:", result.error)
+      await createNotifications([
+        {
+          userId: booking.student_id,
+          type: "system",
+          title: "Sesión confirmada",
+          body: `Ambos confirmaron la sesión de ${sessionLabel}. Estamos procesando el pago al asesor.`,
+          data: { booking_id: bookingId },
+        },
+        {
+          userId: booking.advisor_id,
+          type: "system",
+          title: "Tu pago está pendiente",
+          body: `La sesión de ${sessionLabel} fue confirmada, pero no pudimos enviarte el pago todavía. Revisa tu método de cobro en la billetera; lo reintentaremos.`,
+          data: { booking_id: bookingId },
+        },
+      ])
+      return
     }
 
     await createNotifications([
