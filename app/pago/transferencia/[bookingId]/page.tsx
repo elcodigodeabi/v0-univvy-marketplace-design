@@ -511,7 +511,7 @@ export default function BankTransferPage() {
                       <span>{formatEUR(transfer.advisor_amount_cents)}</span>
                     </div>
                     <div className="flex justify-between text-gray-600">
-                      <span>Comisión plataforma (10%)</span>
+                      <span>Comisión plataforma (13%)</span>
                       <span>{formatEUR(transfer.platform_fee_cents)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-100">

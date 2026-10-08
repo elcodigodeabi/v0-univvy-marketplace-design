@@ -10,7 +10,7 @@
 ### Funcionalidades implementadas:
 - ✅ Checkout Session con redirección a Stripe Checkout
 - ✅ Webhook handler con verificación de firma
-- ✅ Escrow automático: 10% comisión Univvy
+- ✅ Escrow automático: 13% comisión Univvy
 - ✅ Auto-release de escrow 24h post-sesión
 - ✅ Reembolsos automáticos en disputa
 - ✅ Confirmación de ambos participantes (estudiante + asesor)
@@ -35,7 +35,7 @@
 ### Flujo de pago completo:
 1. Estudiante busca asesor y clic en "Agendar"
 2. Completa formulario de sesión → `/pago/[sessionId]`
-3. Sistema calcula precio en EUR: advisor_amount + platform_fee (10%)
+3. Sistema calcula precio en EUR: advisor_amount + platform_fee (13%)
 4. Clic "Ir a Stripe Checkout" → redirección a Stripe Checkout
 5. Usuario completa pago con tarjeta
 6. Stripe dispara `checkout.session.completed`
